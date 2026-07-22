@@ -41,6 +41,13 @@ jobs:
       - name: E2E tests
         run: bun run test:e2e
 
+      # `wrangler dev` (used by Playwright's preview server above) rewrites
+      # worker-configuration.d.ts as a side effect on startup. Regenerate
+      # right before the build's `--check` runs, rather than trusting the
+      # copy from the earlier "Generate Cloudflare Worker types" step.
+      - name: Regenerate Cloudflare Worker types
+        run: bun run gen
+
       - name: Build
         run: bun run build
 
@@ -63,6 +70,9 @@ jobs:
 
       - name: Generate Cloudflare Worker types
         run: bun run gen
+
+      - name: Build
+        run: bun run build
 
       # No D1 database exists yet (Session 3 is CI/CD only). Once a future
       # session adds D1 + Drizzle migrations, add a step here:
