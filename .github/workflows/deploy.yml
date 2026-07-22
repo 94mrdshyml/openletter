@@ -1,0 +1,76 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Cloudflare Worker types
+        run: bun run gen
+
+      - name: Typecheck
+        run: bun run check
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Unit tests
+        run: bun run test:unit -- --run
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install Playwright browser (chromium)
+        run: bunx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: bun run test:e2e
+
+      - name: Build
+        run: bun run build
+
+      - name: Deploy dry-run
+        run: bunx wrangler deploy --dry-run
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Cloudflare Worker types
+        run: bun run gen
+
+      # No D1 database exists yet (Session 3 is CI/CD only). Once a future
+      # session adds D1 + Drizzle migrations, add a step here:
+      #   bunx wrangler d1 migrations apply <db-name> --remote
+      # before the deploy step, so schema changes land before the new code.
+
+      - name: Deploy to Cloudflare Workers
+        run: bunx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
