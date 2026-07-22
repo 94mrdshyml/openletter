@@ -192,10 +192,12 @@ After every push to main, Claude Code **must**:
 
 ## Branch & PR Strategy
 
+- Repo: [github.com/94mrdshyml/openletter](https://github.com/94mrdshyml/openletter)
 - Session 1 pushed directly to `main` to initialise the repo.
 - Every session from Session 2 onwards: feature branch `feature/session-XX-feature-name`.
 - Open a PR to `main` when the session is complete and Definition of Done is met.
 - CI must be green before merging. Never merge a red PR.
+- **Branch protection is not yet enabled** — nothing on GitHub currently blocks a direct push to `main` or a merge with failing checks. This rule is enforced by convention only until `ci.yml` exists. Once CI is in place, enable branch protection on `main` (require a PR before merging, require the CI status check to pass, no force-pushes) so the rule is enforced by GitHub, not just by discipline.
 
 ---
 
