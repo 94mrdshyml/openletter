@@ -101,3 +101,54 @@ NONE.
 - **Branch protection is still OFF.** The rule "CI must be green before merging" in `CLAUDE.md` is not yet enforced by GitHub — it's honor-system until the CI session ships and protection is turned on. Don't assume a red PR is mechanically blocked; check manually.
 - **Naming convention confirmed in practice:** `feature/session-XX-short-description`, two-digit session number. Keep using it so branch names sort predictably.
 - Next logical session is still CI (`ci.yml`/`deploy.yml`) or D1+Drizzle schema — nothing about this session changes that priority, it just makes the repo real.
+
+---
+
+## Session 3 — CI/CD Pipeline
+
+**Date & Time (IST):** 2026-07-23 05:10 IST
+**Status:** Completed
+**Branch:** feature/session-03-ci-cd
+
+### What We Built
+
+`.github/workflows/ci.yml` and `.github/workflows/deploy.yml`, exactly per the pipeline already spec'd in `CLAUDE.md`'s GitHub Actions section: typecheck → lint → unit tests → E2E tests → build → deploy dry-run, gated in sequence, with deploy only happening on push to `main` and only after every prior step is green.
+
+### How We Built It
+
+- Both workflows use `oven-sh/setup-bun@v2` (not `actions/setup-node`, since this project has no Node-based tooling — everything runs through Bun).
+- `ci.yml` triggers on `pull_request` → `main` only, per the spec. `deploy.yml` triggers on `push` → `main`, with a `build` job that repeats the same checks, and a `deploy` job (`needs: build`) that only runs `wrangler deploy` once the build job is fully green.
+- Added an explicit `bun run gen` step before typecheck/build in both workflows — `worker-configuration.d.ts` is gitignored (Session 1 decision), so a fresh CI checkout doesn't have it; `wrangler types --check` (called inside `bun run check` / `bun run build`) fails if the file is missing rather than generating it, confirmed locally in Session 1.
+- Confirmed locally that `wrangler deploy --dry-run` needs **no** Cloudflare credentials (verified by running it with no `CLOUDFLARE_API_TOKEN` set) — so `ci.yml` and the `build` job in `deploy.yml` don't require any secrets at all. Only the `deploy` job's actual `wrangler deploy` step needs `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`.
+- Added a Playwright browser cache (`actions/cache@v4`, keyed on `bun.lock` hash) and scoped the install to `chromium` only (`playwright install --with-deps chromium`) instead of all three engines, since `playwright.config.ts` has no `projects` array and defaults to chromium — no reason to download Firefox/WebKit in CI.
+- **Deliberately did not add the D1 migration step** that's described in `CLAUDE.md`'s `deploy.yml` spec ("apply pending D1 migrations"). There is no D1 database, no Drizzle schema, and no migrations folder yet — that step would fail immediately. Left a comment in `deploy.yml` marking exactly where it goes once the D1/Drizzle session lands.
+- Ran `bun run lint` locally before pushing; caught unrelated formatting drift in `CLAUDE.md`/`docs/SESSION_LOG.md` (picked up after the Session 2 squash-merge) and fixed it with `prettier --write` in this session's commit.
+- **Watched the actual PR #2 CI run per the GH Actions Watch Protocol — it failed on the first push**, on the standalone `Build` step, with `wrangler` reporting `worker-configuration.d.ts` "out of date." This did not reproduce locally after two attempts, so it's CI-environment-specific: `wrangler dev` (spawned by Playwright's `webServer` as the preview server for E2E) rewrites `worker-configuration.d.ts` as a side effect on startup, and that copy doesn't survive the exact `--check` comparison the later `Build` step runs. Fix: added a second, explicit `bun run gen` step immediately before `Build` in both workflows, so the file is always freshly regenerated right before it's checked, instead of trusting the copy from the earlier "Generate Cloudflare Worker types" step.
+- **Also caught, while fixing the above, that `deploy.yml`'s `deploy` job never ran a build step at all** — it went straight from `bun run gen` to `wrangler deploy`, but `wrangler.jsonc`'s `main` points at `.svelte-kit/cloudflare/_worker.js`, which only exists after `vite build` runs. Deploy would have failed on the very first push to `main`. Added the missing `bun run build` step before the deploy step.
+- Pushed the fix, re-watched the run (`gh run watch 29944192718 --exit-status`), confirmed all steps green end-to-end, including `Deploy dry-run`.
+
+### In Scope
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/deploy.yml` (build job + gated deploy job, D1 step deferred)
+- Formatting fix for two files flagged by `bun run lint`
+
+### Out of Scope
+
+- Actually setting `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` as GitHub repo secrets — this needs the user's real Cloudflare credentials, not something to generate. The `deploy` job will fail on `wrangler deploy` until these are added.
+- Enabling GitHub branch protection on `main` — now that a real CI status check (`ci.yml`) exists, this is unblocked, but wasn't done this session; still a manual step on GitHub.
+- D1 migration step in `deploy.yml` (see above)
+- Any application code
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- **Deploy will not succeed yet.** The first push to `main` after this merges will trigger `deploy.yml`; the `build` job will pass, but the `deploy` job's `wrangler deploy` step will fail until `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are added as GitHub Actions secrets (repo Settings → Secrets and variables → Actions). That failure is expected, not a regression — don't "fix" it by weakening the gate.
+- **Branch protection is now unblocked but not yet enabled.** `ci.yml`'s `test` job is a real status check GitHub can require. Whoever sets up branch protection should require it, require PRs, and disallow force-push on `main`.
+- **When the D1/Drizzle session lands:** add the `wrangler d1 migrations apply <db-name> --remote` step in `deploy.yml`'s `deploy` job, in the spot marked by the comment — before the `wrangler deploy` step, not after (schema must land before the code that queries it).
+- **Playwright browser scope:** CI only installs `chromium`. If a future session adds `projects` to `playwright.config.ts` for cross-browser testing, update the CI install step (and cache key) to match — don't let them silently drift apart.
+- **`wrangler dev` mutates `worker-configuration.d.ts` on startup.** Any workflow step that runs after something spins up `wrangler dev` (directly, or via Playwright's `webServer`) and then needs `wrangler ... --check` to pass should regenerate types immediately beforehand — don't assume an earlier "gen" step in the same job is still valid. This bit CI on the very first real run; it's a general rule, not a one-off.
+- **PR #2's CI run is real, verified evidence — not a local-only claim.** Run IDs `29943821636` (failed) → `890ab88` fix → `29944192718` (green) are on record at [github.com/94mrdshyml/openletter/pull/2](https://github.com/94mrdshyml/openletter/pull/2) if anyone wants to see the actual failure/fix.

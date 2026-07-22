@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Cloudflare Worker types
+        run: bun run gen
+
+      - name: Typecheck
+        run: bun run check
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Unit tests
+        run: bun run test:unit -- --run
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install Playwright browser (chromium)
+        run: bunx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: bun run test:e2e
+
+      # `wrangler dev` (used by Playwright's preview server above) rewrites
+      # worker-configuration.d.ts as a side effect on startup. Regenerate
+      # right before the build's `--check` runs, rather than trusting the
+      # copy from the earlier "Generate Cloudflare Worker types" step.
+      - name: Regenerate Cloudflare Worker types
+        run: bun run gen
+
+      - name: Build
+        run: bun run build
+
+      - name: Deploy dry-run
+        run: bunx wrangler deploy --dry-run
