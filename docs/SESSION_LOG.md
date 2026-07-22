@@ -58,3 +58,46 @@ NONE — first session, nothing pre-existing to break.
 - **Demo/example code is still in the tree** (`/demo`, `/demo/playwright`, `src/lib/vitest-examples/greet.ts`). Delete these once real routes and tests replace them — don't let them linger past the session that adds the real homepage/editor.
 - **No D1 database, no Drizzle, no Better Auth yet.** The Known Gotchas in `CLAUDE.md` about D1 per-request binding and the Better Auth catch-all route are not yet applicable to any code in this repo — they become relevant the moment a future session adds `src/lib/server/db` or `/api/auth/[...betterauth]`.
 - **No remote configured, nothing pushed.** This session's commit exists only in the local repo. Pushing to a GitHub remote needs explicit user go-ahead (repo creation, remote add, and the actual push are all treated as one-way/shared-state actions).
+
+---
+
+## Session 2 — GitHub Repo + Branch Strategy Docs
+
+**Date & Time (IST):** 2026-07-23 04:20 IST
+**Status:** Completed
+**Branch:** feature/session-02-branch-strategy-docs
+
+### What We Built
+
+Created the public GitHub repo, pushed Session 1's work to `main`, and documented the now-real branch/PR workflow in `CLAUDE.md`. No application code changed.
+
+### How We Built It
+
+- `gh repo create openletter --public --source=. --remote=origin` — created [github.com/94mrdshyml/openletter](https://github.com/94mrdshyml/openletter), added it as `origin`.
+- `git push -u origin main` — pushed Session 1's existing commit straight to `main`, per the "Session 1 pushes directly" rule already documented (no PR needed for that push).
+- Opened `feature/session-02-branch-strategy-docs` for this session's own change, since from Session 2 onward the documented rule is feature-branch-then-PR — this session follows the rule it's updating.
+- Updated `CLAUDE.md`'s Branch & PR Strategy section: added the repo URL, and a note that branch protection on `main` is **not yet enabled** — nothing on GitHub currently enforces "PR required" or "CI must be green," that's convention-only until `ci.yml` exists and protection rules are turned on.
+
+### In Scope
+
+- GitHub repo creation (public)
+- Push of Session 1's commit to remote `main`
+- `CLAUDE.md` Branch & PR Strategy section updated with repo link + branch protection caveat
+- This session's own log entry, opened as a PR per the strategy being documented
+
+### Out of Scope
+
+- Enabling actual GitHub branch protection rules (deferred until `ci.yml` exists — there's no status check to require yet)
+- CI/CD (`ci.yml` / `deploy.yml`) — still not built
+- Any application code (D1, auth, editor, Resend, CLI) — untouched this session
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- **Repo is live and public:** [github.com/94mrdshyml/openletter](https://github.com/94mrdshyml/openletter). Anything committed from here on is publicly visible immediately on push — double-check no secrets/API keys land in any commit.
+- **Branch protection is still OFF.** The rule "CI must be green before merging" in `CLAUDE.md` is not yet enforced by GitHub — it's honor-system until the CI session ships and protection is turned on. Don't assume a red PR is mechanically blocked; check manually.
+- **Naming convention confirmed in practice:** `feature/session-XX-short-description`, two-digit session number. Keep using it so branch names sort predictably.
+- Next logical session is still CI (`ci.yml`/`deploy.yml`) or D1+Drizzle schema — nothing about this session changes that priority, it just makes the repo real.
