@@ -235,3 +235,39 @@ NONE.
 - **`.dev.vars` vs GitHub Actions secrets are not interchangeable.** `.dev.vars` → local `wrangler dev` runtime bindings (Resend key, Better Auth secret). GitHub Actions secrets → CI/CD auth only (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`). Never let a Cloudflare account credential end up in `.dev.vars` or any tracked file.
 - **`.svelte-kit/` can go stale across branch switches** since it's gitignored and git never touches it on checkout. If `bun run check` ever reports a wall of errors inside `.svelte-kit/cloudflare/_worker.js` that don't correspond to any real source change, suspect the cache first — `rm -rf .svelte-kit && bun run gen` — before assuming a real regression.
 - **When the Better Auth / Resend session lands:** read `RESEND_API_KEY` and `BETTER_AUTH_SECRET` from `event.platform.env` (per the D1-bindings-per-request gotcha already in `CLAUDE.md`), and update `.dev.vars.example` if any additional var is needed — don't let the example file drift from what the code actually reads.
+
+---
+
+## Session 6 — Cloudflare CLI Var Placeholders
+
+**Date & Time (IST):** 2026-07-23 11:20 IST
+**Status:** Completed
+**Branch:** feature/session-06-cf-cli-vars
+
+### What We Built
+
+Added `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` placeholder lines to `.dev.vars.example` and `.dev.vars`, at the user's request, with a comment block making clear these are for optionally running Wrangler CLI commands locally (`wrangler deploy`, `wrangler d1 migrations apply --remote`) — not something the Worker runtime reads, and not something Wrangler auto-loads from this file.
+
+### How We Built It
+
+- Flagged the nuance before doing it: `.dev.vars` is only auto-injected into the Worker's `env` binding by `wrangler dev` — it is not read by the `wrangler` CLI itself for its own Cloudflare authentication. That auth comes from real shell env vars or `wrangler login`. Adding these here as placeholders is harmless documentation, but dropping real values into `.dev.vars` and expecting `wrangler deploy` to "just work" from them would be wrong.
+- Both files now say explicitly: export into your shell (e.g. `set -a && source .dev.vars && set +a`) if you actually want Wrangler to pick these up locally.
+- Kept the values empty in both files — same as `RESEND_API_KEY`/`BETTER_AUTH_SECRET`, no real secret exists in either tracked or untracked copy.
+
+### In Scope
+
+- `.dev.vars.example` and `.dev.vars` — added `CLOUDFLARE_API_TOKEN=` / `CLOUDFLARE_ACCOUNT_ID=` placeholders with clarifying comments
+
+### Out of Scope
+
+- Real Cloudflare credential values — still only exist (once added) as GitHub Actions secrets, per Session 3/4. This session did not touch those.
+- Any code change
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- **Session 5's note "never let a Cloudflare account credential end up in `.dev.vars` or any tracked file" still holds for real values.** What changed here is documentation-only: empty placeholders in both files, explaining what the two CF vars are for and how Wrangler actually consumes them (shell env, not auto-read from `.dev.vars`). Don't read this session as license to put a real token in either file.
+- **`.dev.vars.example` must stay placeholder-only, forever** — it's the one file every contributor sees and copies from. Any accidental real value committed there is a public leak the moment it's pushed (this repo is public).

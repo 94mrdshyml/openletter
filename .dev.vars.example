@@ -7,3 +7,15 @@ RESEND_API_KEY=
 
 # Better Auth secret — any random 32+ byte string, e.g. `openssl rand -hex 32`
 BETTER_AUTH_SECRET=
+
+# --- Cloudflare CLI auth (optional, local only) ---
+# NOTE: Wrangler does NOT read these from .dev.vars. .dev.vars only feeds the
+# Worker's runtime `env` binding during `wrangler dev`. These two are read by
+# the `wrangler` CLI itself as real process env vars, only needed if you want
+# to run remote commands locally (`wrangler deploy`, `wrangler d1 migrations
+# apply --remote`, etc.) instead of via CI. To use them, export into your
+# shell — e.g. `set -a && source .dev.vars && set +a` — don't expect Wrangler
+# to pick them up automatically just because this file exists.
+# Get a token: https://developers.cloudflare.com/fundamentals/api/get-started/create-token/
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ACCOUNT_ID=
