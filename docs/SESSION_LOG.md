@@ -152,3 +152,45 @@ NONE.
 - **Playwright browser scope:** CI only installs `chromium`. If a future session adds `projects` to `playwright.config.ts` for cross-browser testing, update the CI install step (and cache key) to match — don't let them silently drift apart.
 - **`wrangler dev` mutates `worker-configuration.d.ts` on startup.** Any workflow step that runs after something spins up `wrangler dev` (directly, or via Playwright's `webServer`) and then needs `wrangler ... --check` to pass should regenerate types immediately beforehand — don't assume an earlier "gen" step in the same job is still valid. This bit CI on the very first real run; it's a general rule, not a one-off.
 - **PR #2's CI run is real, verified evidence — not a local-only claim.** Run IDs `29943821636` (failed) → `890ab88` fix → `29944192718` (green) are on record at [github.com/94mrdshyml/openletter/pull/2](https://github.com/94mrdshyml/openletter/pull/2) if anyone wants to see the actual failure/fix.
+
+---
+
+## Session 4 — Branch Protection
+
+**Date & Time (IST):** 2026-07-23 06:05 IST
+**Status:** Completed
+**Branch:** feature/session-04-branch-protection
+
+### What We Built
+
+Enabled real GitHub branch protection on `main`, and updated `CLAUDE.md`'s Branch & PR Strategy section to match. No application or workflow code changed.
+
+### How We Built It
+
+- After merging PR #2 (Session 3's CI/CD pipeline) and watching the resulting `deploy.yml` run on `main` (build job green, deploy job failed exactly as expected on the missing `CLOUDFLARE_API_TOKEN` — confirmed via `gh run view --log-failed`, not assumed), turned on branch protection via `gh api repos/94mrdshyml/openletter/branches/main/protection`.
+- First attempt used `gh api -f key=value` flags, which sends everything as strings — GitHub's schema rejected `"true"`/`"false"` as invalid for boolean fields. Switched to piping a JSON body via `--input -`, which fixed it.
+- First successful protection payload set `required_status_checks` (strict, context: `test`) and disallowed force-push/deletion, but left `required_pull_request_reviews: null` — that only blocks _merging_ a failing PR, it doesn't stop a direct `git push` to `main`. Caught this before calling it done and re-ran the API call with `required_pull_request_reviews: { required_approving_review_count: 0 }` added, which is what actually forces all changes through a PR. `required_approving_review_count: 0` because this is a single-maintainer project — no one else to approve — but the PR requirement itself still applies.
+- `enforce_admins: true` — the rule applies to the repo owner too, deliberately, since `CLAUDE.md` already establishes "every session from Session 2 onwards: feature branch + PR" as the standing rule for all future work, including work done by Claude Code itself.
+- Updated `CLAUDE.md`'s Branch & PR Strategy section to state protection is live (not "pending," as Session 3 left it) and to note that a future direct push to `main` is now a deliberate, flagged exception rather than something possible to do by accident.
+
+### In Scope
+
+- GitHub branch protection on `main`: required status check (`test`), required PR (0 approvals), no force-push, no deletion, enforced for admins
+- `CLAUDE.md` Branch & PR Strategy section updated to reflect the above
+
+### Out of Scope
+
+- Cloudflare secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) — still not set; `deploy` job will keep failing on every push to `main` until the user adds them (repo Settings → Secrets and variables → Actions, or `gh secret set`)
+- CODEOWNERS, required review count above 0, signed commits — none of these fit a single-maintainer repo right now; revisit if the project gains contributors
+- D1/Drizzle, application code — untouched
+
+### Breaking Changes
+
+**Yes, workflow-level, not application-level:** direct pushes to `main` no longer work for anyone, including the repo owner via a local `git push`. All future changes — including trivial doc fixes — must go through a branch + PR. This was already the _documented_ rule from Session 1/2, but it is now _mechanically enforced_. If a future session tries `git push origin main` directly, expect GitHub to reject it.
+
+### Notes for Future Sessions
+
+- **`git push origin main` will now fail for everyone.** This isn't a bug — it's the branch protection working. Always branch, commit, push the branch, `gh pr create`, then merge (squash, per the pattern used in Sessions 2 and 3).
+- **The `test` status check name comes from `ci.yml`'s job id (`test`), not the workflow name (`CI`).** If a future session renames that job, branch protection's required check will silently stop matching anything, and PRs will merge without the check actually being required. Keep the job id `test` unless you also update `repos/94mrdshyml/openletter/branches/main/protection`'s `required_status_checks.contexts`.
+- **Cloudflare secrets are the one remaining blocker on a real deploy.** Everything else in the pipeline (CI, branch protection) is now fully wired. The next time someone merges a PR to `main`, `deploy.yml`'s `build` job will pass and `deploy` will fail on auth until those two secrets exist.
+- **`gh api` needs typed JSON for boolean/null fields — `-f` sends strings.** Use `--input -` with a heredoc JSON body for any GitHub API call involving booleans, nulls, or nested objects. Cost real time this session; don't repeat it.
