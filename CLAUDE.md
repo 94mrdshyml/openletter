@@ -155,14 +155,14 @@ Every primary key, across every table (including Better Auth's own `user`/`sessi
 
 Prefixes (extend this list as new entities are added — don't invent a new prefix without adding it here):
 
-| Prefix   | Entity                          |
-| -------- | -------------------------------- |
-| `pub_`   | Publication                      |
-| `post_`  | Post                              |
-| `sub_`   | Subscriber                       |
-| `user_`  | Writer/user (Better Auth `user`) |
-| `sess_`  | Session (Better Auth `session`)  |
-| `ver_`   | Verification token (Better Auth `verification`) |
+| Prefix  | Entity                                          |
+| ------- | ----------------------------------------------- |
+| `pub_`  | Publication                                     |
+| `post_` | Post                                            |
+| `sub_`  | Subscriber                                      |
+| `user_` | Writer/user (Better Auth `user`)                |
+| `sess_` | Session (Better Auth `session`)                 |
+| `ver_`  | Verification token (Better Auth `verification`) |
 
 Implementation rule: one shared ID-generation helper (e.g. `src/lib/server/id.ts`) that takes a prefix and returns the full ID — no ad hoc per-table ID logic. Better Auth supports custom ID generation via its `advanced.database.generateId` config; wire it to the same helper so Better Auth's own tables match the scheme instead of falling back to its default IDs.
 
