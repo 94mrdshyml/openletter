@@ -2,6 +2,59 @@
 
 ---
 
+## Session 8 — D1 Schema + Drizzle Setup
+
+**Date & Time (IST):** 2026-07-23 12:57 IST
+**Status:** Completed
+**Branch:** feature/session-08-d1-schema
+
+### What We Built
+
+First real backend piece: a Cloudflare D1 database (`openletter`) with a Drizzle-managed schema for `publication`, `post`, and `subscriber`, plus a shared ID-generation helper so every row gets a Stripe-style prefixed ID (`pub_...`, `post_...`, `sub_...`) instead of a raw UUID or auto-increment integer. No UI or route changes — this session is schema/infra only, same pattern as Session 1.
+
+### How We Built It
+
+- **ID scheme decided first, documented in `CLAUDE.md`** before touching code: a new "ID Scheme" section lists the fixed prefix table (`pub_`, `post_`, `sub_`, and the not-yet-built `user_`/`sess_`/`ver_` for when Better Auth lands) and the rule that every table uses one shared helper, no ad hoc per-table ID logic.
+- `src/lib/server/id.ts` — `generateId(prefix: 'pub' | 'post' | 'sub')` returns `` `${prefix}_${24-char alphanumeric}` `` via `nanoid`'s `customAlphabet` (plain `0-9a-zA-Z`, no `-`/`_` in the random part so IDs read cleanly). Only the three prefixes actually in use today are in the type union — `user`/`sess`/`ver` get added when Better Auth is wired in, not speculatively now.
+- `src/lib/server/db/schema.ts` — Drizzle `sqlite-core` tables:
+  - `publication`: id, name, slug (unique), tagline, description, logoUrl, createdAt. Single-instance model — no `publicationId` FK on `post`/`subscriber`, per `CLAUDE.md`'s Single-Instance Model section.
+  - `post`: id, slug (unique), title, excerpt, body, status (`draft`/`published`), publishedAt, createdAt, updatedAt. Deliberately **no** open-rate/click columns — PRD §6 #7 says dashboard analytics come live from Resend's own API, not a custom tracking table.
+  - `subscriber`: id, email (unique), resendContactId, subscribedAt. Minimal mirror of what Resend already tracks; likely gets reconciled with Better Auth's own `user` table once auth lands (flagged, not resolved, in Notes below).
+- `src/lib/server/db/index.ts` — `getDb(d1: D1Database)` factory wrapping `drizzle(d1, { schema })`. Takes the binding as a parameter rather than importing it at module scope, consistent with the existing Known Gotcha that D1 bindings aren't available at Worker module-load time.
+- Cloudflare D1 database `openletter` created via `wrangler d1 create openletter` (none existed yet for this project) and wired into `wrangler.jsonc` as binding `DB` — matches the binding name already assumed by `CLAUDE.md`'s Security Rules section (`event.platform.env.DB`).
+- `drizzle.config.ts` (dialect `sqlite`, schema path, `out: './migrations'`) + `bunx drizzle-kit generate` produced `migrations/0000_rich_lightspeed.sql` — pure `CREATE TABLE`/`CREATE UNIQUE INDEX`, no drops, read before applying per the Database Safety rule. Applied to the **local** D1 (`wrangler d1 migrations apply openletter --local`) and verified via `sqlite_master` query; **not** applied to remote — that's `deploy.yml`'s job on the next push to `main`, already wired up since Session 3.
+- `bun run gen` re-run so `worker-configuration.d.ts` picks up `Env.DB: D1Database`.
+- Cloudflare API token in `.dev.vars` initially lacked D1 permissions (`wrangler d1 list` returned auth error 10000) — flagged to the user rather than working around it; user added D1 Edit scope to the token and it resolved.
+
+### In Scope
+
+- D1 database provisioned and bound (`DB`)
+- Drizzle schema for `publication`, `post`, `subscriber`
+- Shared stripe-style ID helper, documented in `CLAUDE.md`
+- Migration generated, reviewed, and applied locally
+- Unit tests for the ID helper (`src/lib/server/id.spec.ts`)
+
+### Out of Scope
+
+- Wiring any route/dashboard page to actually read/write D1 (still using `mock-data.ts` — that swap is a future session once Better Auth exists, so writer-only routes can be gated)
+- Better Auth's own tables (`user`, `session`, `verification`) and their `generateId` hook into this same helper
+- Applying the migration to the **remote** D1 — happens automatically via `deploy.yml` on merge to `main`
+- Reconciling `subscriber` with whatever Better Auth's `user` table ends up looking like
+
+### Breaking Changes
+
+- NONE (additive only: new binding, new tables, no existing route/schema touched)
+
+### Notes for Future Sessions
+
+- **`subscriber` vs Better Auth `user` table is an open design question**, not decided here — when the auth session starts, explicitly decide whether `subscriber` stays a separate table (denormalized mirror of Resend) or gets folded into Better Auth's `user` table. Don't silently pick one.
+- **ID prefix table in `CLAUDE.md` has `user_`/`sess_`/`ver_` reserved** for Better Auth's tables — when wiring up Better Auth, use its `advanced.database.generateId` config to call the same `generateId()` helper instead of Better Auth's own default ID generation, so every table in the DB is consistent.
+- **Pre-existing flaky E2E test, unrelated to this session:** `src/routes/dashboard/posts/new/page.svelte.e2e.ts` → `opens the publish confirmation dialog` failed once, passed on retry. Confirmed via `git diff` that this session touched zero files in that route, and the flake reproduces on a clean stash of `main` too — not a regression from this session. `playwright.config.ts` has no `retries` configured; worth adding `retries: 1` for CI in a future session rather than living with an occasional red PR.
+- **Cloudflare API token now has D1 Edit permission** (added mid-session by the user) — future sessions needing D1 access from local Wrangler CLI calls should work without re-prompting for this.
+- `bun.lock` and `package.json` picked up `drizzle-orm`, `drizzle-kit`, `nanoid` as new dependencies.
+
+---
+
 ## Session 1 — Project Scaffold + Tooling
 
 **Date & Time (IST):** 2026-07-23 03:45 IST
