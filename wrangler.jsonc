@@ -9,5 +9,12 @@
 		"directory": ".svelte-kit/cloudflare"
 	},
 	"workers_dev": true,
-	"preview_urls": true
+	"preview_urls": true,
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "openletter",
+			"database_id": "8c9b63c1-d1af-488c-a379-9c5e3c4bc559"
+		}
+	]
 }

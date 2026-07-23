@@ -149,6 +149,25 @@ This simplicity is deliberate — do not introduce a multi-tenant abstraction (s
 
 ---
 
+## ID Scheme
+
+Every primary key, across every table (including Better Auth's own `user`/`session`/`verification` tables), is a **Stripe-style prefixed ID**: `{prefix}_{24-char random alphanumeric}` (nanoid). Never a raw UUID, never an auto-increment integer.
+
+Prefixes (extend this list as new entities are added — don't invent a new prefix without adding it here):
+
+| Prefix  | Entity                                          |
+| ------- | ----------------------------------------------- |
+| `pub_`  | Publication                                     |
+| `post_` | Post                                            |
+| `sub_`  | Subscriber                                      |
+| `user_` | Writer/user (Better Auth `user`)                |
+| `sess_` | Session (Better Auth `session`)                 |
+| `ver_`  | Verification token (Better Auth `verification`) |
+
+Implementation rule: one shared ID-generation helper (e.g. `src/lib/server/id.ts`) that takes a prefix and returns the full ID — no ad hoc per-table ID logic. Better Auth supports custom ID generation via its `advanced.database.generateId` config; wire it to the same helper so Better Auth's own tables match the scheme instead of falling back to its default IDs.
+
+---
+
 ## GitHub Actions
 
 Secrets required: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `RESEND_API_KEY` (test/sandbox key), `BETTER_AUTH_SECRET` (test value).
