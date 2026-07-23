@@ -197,7 +197,7 @@ After every push to main, Claude Code **must**:
 - Every session from Session 2 onwards: feature branch `feature/session-XX-feature-name`.
 - Open a PR to `main` when the session is complete and Definition of Done is met.
 - CI must be green before merging. Never merge a red PR.
-- **Branch protection is not yet enabled** — nothing on GitHub currently blocks a direct push to `main` or a merge with failing checks. This rule is enforced by convention only until `ci.yml` exists. Once CI is in place, enable branch protection on `main` (require a PR before merging, require the CI status check to pass, no force-pushes) so the rule is enforced by GitHub, not just by discipline.
+- **Branch protection is enabled on `main`, enforced by GitHub, not just convention:** a PR is required to merge, the `test` status check (from `ci.yml`) must pass, force-pushes and branch deletion are disallowed, and this applies to admins too — nobody, including the repo owner, can push directly to `main` anymore. If a future session needs to push straight to `main` for some reason, that's a deliberate exception to flag and ask about first, not something to route around silently.
 
 ---
 
