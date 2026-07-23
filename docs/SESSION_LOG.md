@@ -29,7 +29,7 @@ Merging this hotfix triggers `deploy.yml` again, which both fixes the pipeline a
 ### Notes for Future Sessions
 
 - Remote D1 migrations now apply automatically on every push to `main`. Any future migration just needs `drizzle-kit generate` + committing the output — no manual `wrangler d1 migrations apply --remote` step required.
-- Lesson: don't write "X happens automatically" in a session log without having actually traced the file that's supposed to do it. Read the workflow file, don't assume from the CLAUDE.md spec of what it's *supposed* to contain.
+- Lesson: don't write "X happens automatically" in a session log without having actually traced the file that's supposed to do it. Read the workflow file, don't assume from the CLAUDE.md spec of what it's _supposed_ to contain.
 
 ---
 
