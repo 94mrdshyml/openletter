@@ -271,3 +271,59 @@ NONE.
 
 - **Session 5's note "never let a Cloudflare account credential end up in `.dev.vars` or any tracked file" still holds for real values.** What changed here is documentation-only: empty placeholders in both files, explaining what the two CF vars are for and how Wrangler actually consumes them (shell env, not auto-read from `.dev.vars`). Don't read this session as license to put a real token in either file.
 - **`.dev.vars.example` must stay placeholder-only, forever** — it's the one file every contributor sees and copies from. Any accidental real value committed there is a public leak the moment it's pushed (this repo is public).
+
+---
+
+## Session 7 — Static UI from Claude Design Handoff
+
+**Date & Time (IST):** 2026-07-23 17:50 IST
+**Status:** Completed
+**Branch:** feature/session-07-static-ui
+
+### What We Built
+
+Every screen from the user's Claude Design handoff ("OpenLetter publication design system," a "Modernist" design system) as real SvelteKit routes with mock/hardcoded data: public homepage and post page, and the full writer admin surface — login, check-email, dashboard overview, analytics, post list, post editor with a publish-confirmation dialog, settings, and the post-deploy welcome screen. No backend (D1, auth, Resend) — this is UI-only, so the user can see the product before any wiring lands.
+
+### How We Built It
+
+- Imported the design via the `DesignSync` MCP tool (`get_project` / `list_files` / `get_file` against the handed-off project id), read the full canvas HTML (~13 mockup screens across 3 exploration rounds) and the "Modernist" design-system CSS (tokens + component classes).
+- Two real ambiguities surfaced immediately — the homepage had 4 competing variants that never landed on a final pick, and the writer-admin nav was inconsistent between exploration rounds (1f's simpler nav vs. 3a/3b/3c's fuller 4-tab nav). Surfaced both to the user via `AskUserQuestion` rather than picking silently: went with homepage variant **1a** (populated, inline post list) and adopted turn 3's nav everywhere, reconciling `/dashboard` (1f's overview content) and `/dashboard/posts` (3b's fuller list) under that one nav.
+- Used `EnterPlanMode` given the scope (design system port + 9 routes + shared components) — explored the existing codebase with an `Explore` agent first (confirmed no `app.css`/font-loading existed yet, no `svelte.config.js`, SvelteKit conventions: runes mode forced, `resolve()` for internal links, e2e specs live beside their route as `page.svelte.e2e.ts`), then wrote and got the plan approved before touching any files.
+- Ported the design system almost verbatim into `src/app.css` (tokens: `--color-*`, `--font-*`, `--space-*`, `--radius-*` all `0px`, `--shadow-*`; components: `.btn*`, `.input`/`.field`, `.nav`, `.table`, `.tag*`, `.dialog*`), loaded Archivo via a Google Fonts `<link>` in `app.html` (not the CSS file's `@import`, to avoid the render-blocking double round-trip), and summarized it in `DESIGN.md` (previously empty) as the source-of-truth pointer.
+- Two route-group layouts: `(public)` wraps homepage + `/p/[slug]` with `PublicNav`; `dashboard/` wraps all 5 admin pages with `AdminNav` (current-tab highlighting via `$app/state`'s `page.url.pathname`). `login`, `login/check-email`, `welcome` are standalone (match the mockups, which show no site nav on those screens).
+- Extracted `PublicNav`, `AdminNav`, `SubscribeForm` as shared components (3+ real usages each); deliberately left the public vs. admin post-list markup **inline, not shared** — different enough per-context (public: title/date/excerpt link; admin: icons/edit-link/tags/more-options) that a shared component would need heavy conditional branching for what's really two different single uses.
+- Small single-purpose icon components in `src/lib/components/icons/` (`DraftIcon`, `PublishedIcon`, `PlusIcon`, `MoreIcon`, `BackIcon`, `SettingsIcon`, and the 6 editor-toolbar icons) rather than inlining SVG markup repeatedly or using `{@html}` — ESLint's `svelte/no-at-html-tags` correctly flagged an initial `{@html}`-based toolbar-icon approach (XSS-shaped pattern, even though the content was 100% static); rebuilt as real components instead of suppressing the rule.
+- `src/lib/mock-data.ts` — publication info and 5 posts taken verbatim from the design mockups, each with an ISO date (`2026-07-18`, not a pre-formatted string) so `src/lib/format.ts`'s `formatPostDate`/`formatPostDateShort` do real formatting work — gives the replacement unit test (for the deleted `greet.ts` example) actual substance instead of a trivial passthrough. Caught and fixed my own mistake here: the design mockup's analytics table has a "Sent" column that actually displays the post's _date_, not a sent-count — copied that quirk faithfully rather than inventing a sent-count number that was never designed.
+- Removed the scaffold entirely per Session 1's own note ("delete these once real routes/tests replace them"): `/demo`, `/demo/playwright`, `src/lib/vitest-examples/greet.{ts,spec.ts}`.
+- Every route got a navigation e2e test (goto → assert URL, per `CLAUDE.md`'s required template) plus interaction checks where cheap and meaningful (subscribe form visible, post title visible, editor toolbar/fields visible, publish dialog opens, login redirects to check-email). Dashboard nav tests **omit** the `loginAsTestWriter(page)` helper `CLAUDE.md`'s template calls for — that helper can't exist yet since there's no auth. Documented as a deferral, same pattern Session 3 used for the D1 migration step, not faked.
+- Hit the known `worker-configuration.d.ts`/stale-`.svelte-kit`-cache issues again mid-session (487 phantom typecheck errors after switching branches) — same root cause as Session 5, same fix (`rm -rf .svelte-kit && bun run gen`), confirmed not a real regression before continuing.
+- Manual browser verification: tried the `gstack`/`browse` skill first, but it wanted to run a large unrelated onboarding flow (telemetry prompts, skill-routing setup) — skipped it and wrote a temporary Playwright spec (`src/visual-check.e2e.ts`, deleted before commit) run through the project's own proven `test:e2e` harness instead of a raw `chromium.launch()` script (which hit an unrelated 180s launch timeout on this machine when run standalone outside the Playwright test runner). Screenshotted all 10 routes, confirmed zero console/page errors, visually verified fidelity against the mockups (fonts, colors, icon placement, `.btn-block` left-alignment matching the ported component class rather than a centered override).
+
+### In Scope
+
+- `src/app.css` (design system port), Archivo font loading in `app.html`, `DESIGN.md` summary
+- `src/lib/mock-data.ts`, `src/lib/format.ts` + `format.spec.ts`
+- `src/lib/components/`: `PublicNav`, `AdminNav`, `SubscribeForm`, icon components
+- Routes: `/`, `/p/[slug]`, `/dashboard`, `/dashboard/analytics`, `/dashboard/posts`, `/dashboard/posts/new`, `/dashboard/settings`, `/login`, `/login/check-email`, `/welcome`
+- Navigation + interaction e2e tests for every route
+- Removal of scaffold demo routes and the `greet` vitest example
+
+### Out of Scope
+
+- Any backend: D1, Drizzle, Better Auth, Resend — every form/button is inert or client-side-only (dialog toggles, redirect on login submit)
+- 404 page design, magic-link/post-delivery email templates, unsubscribe/preferences page — not yet designed in the handoff itself (its own "Next:" notes confirm this)
+- Auth-gating e2e tests for `/dashboard/*` — deferred until Better Auth exists
+- Real Tiptap editor — the editor page is a static mockup of the toolbar/contenteditable areas, not a wired rich-text editor
+
+### Breaking Changes
+
+**Yes:** the SvelteKit starter homepage (`Welcome to SvelteKit`) and all `/demo` scaffold routes are gone, replaced by the real homepage and product routes. Anyone relying on those scaffold URLs (nobody should be) will get a 404.
+
+### Notes for Future Sessions
+
+- **Route ID for grouped routes includes the group name.** `resolve('/(public)/p/[slug]', { slug })`, not `resolve('/p/[slug]', ...)` — the latter silently falls through to a no-params overload and fails typecheck with a confusing "Expected 1 arguments, but got 2." Cost real time this session.
+- **`{@html}` is ESLint-blocked (`svelte/no-at-html-tags`) even for 100% static content.** Build tiny dedicated icon components instead — see `src/lib/components/icons/` for the pattern (6 toolbar icons, each a one-file `.svelte` component, `currentColor` stroke by default so they inherit button text color, override with a wrapping `<span style="color:...">` when used outside a colored-button context like `welcome/+page.svelte`'s `PlusIcon` usage).
+- **`.svelte-kit` cache staleness after branch switches is now a recurring, known issue** (Sessions 5 and 7 both hit it). If `bun run check` reports a wall of errors inside `.svelte-kit/cloudflare/_worker.js` unrelated to any real change, it's the cache — `rm -rf .svelte-kit && bun run gen` first, before assuming a regression.
+- **Design fidelity gaps to close in a future design pass:** 404 page, magic-link email template, post-delivery email template, unsubscribe/preferences page — the handoff's own "Next:" notes list these as not-yet-designed. Don't invent designs for these; get another handoff first.
+- **When D1/Drizzle + Better Auth land:** `src/lib/mock-data.ts` gets replaced by real queries — same shape (a `Post` type, a `publication` object) should carry over so the route components barely need to change, just their data source. The dashboard nav e2e tests will need `loginAsTestWriter(page)` added at that point, and the auth-protection test CLAUDE.md requires ("unauthenticated users cannot reach dashboard") becomes possible for the first time.
+- **Raw `chromium.launch()` in a standalone script hits a 180s launch timeout on this Windows machine** — unrelated to the app, an environment/launcher quirk. Use the project's own Playwright config (`bunx playwright test <file>`) for any future ad-hoc browser scripting instead of a bare script.
