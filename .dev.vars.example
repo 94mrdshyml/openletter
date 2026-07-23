@@ -1,0 +1,9 @@
+# Local dev secrets for `wrangler dev` / `bun run dev`.
+# Copy this file to `.dev.vars` and fill in real values.
+# `.dev.vars` is gitignored — never commit real secrets.
+
+# Resend API key (use a sandbox/test key for local dev) — https://resend.com/api-keys
+RESEND_API_KEY=
+
+# Better Auth secret — any random 32+ byte string, e.g. `openssl rand -hex 32`
+BETTER_AUTH_SECRET=
