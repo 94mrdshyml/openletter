@@ -2,6 +2,37 @@
 
 ---
 
+## Hotfix 1 — Apply D1 migrations on deploy
+
+**Date & Time (IST):** 2026-07-23 13:05 IST
+**Status:** Completed
+**Branch:** fix/deploy-apply-d1-migrations
+
+### What happened
+
+Session 8's log claimed "remote apply happens via the existing `deploy.yml` job" — that was never verified and was wrong. `deploy.yml`'s `deploy` job only had a comment placeholder left by Session 3 ("once a future session adds D1 + Drizzle migrations, add a step here") — no actual `wrangler d1 migrations apply --remote` step existed. Session 8's merge to `main` deployed the Worker with zero tables on the remote D1 database.
+
+### Fix
+
+Added the missing step to `.github/workflows/deploy.yml`'s `deploy` job, right before `Deploy to Cloudflare Workers`:
+
+```yaml
+- name: Apply pending D1 migrations
+  run: bunx wrangler d1 migrations apply openletter --remote
+  env:
+    CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+```
+
+Merging this hotfix triggers `deploy.yml` again, which both fixes the pipeline and applies the pending `0000_rich_lightspeed.sql` migration to remote D1 in the same run — no separate manual `--remote` apply needed.
+
+### Notes for Future Sessions
+
+- Remote D1 migrations now apply automatically on every push to `main`. Any future migration just needs `drizzle-kit generate` + committing the output — no manual `wrangler d1 migrations apply --remote` step required.
+- Lesson: don't write "X happens automatically" in a session log without having actually traced the file that's supposed to do it. Read the workflow file, don't assume from the CLAUDE.md spec of what it's _supposed_ to contain.
+
+---
+
 ## Session 8 — D1 Schema + Drizzle Setup
 
 **Date & Time (IST):** 2026-07-23 12:57 IST
