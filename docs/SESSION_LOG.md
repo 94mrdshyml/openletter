@@ -2,6 +2,60 @@
 
 ---
 
+## Session 10 — Ghost-style setup wizard, admin/reader roles, invitations, R2 avatars
+
+**Date & Time (IST):** 2026-07-24 11:57 IST
+**Status:** Completed
+**Branch:** feature/session-10-roles-invites
+
+### What We Built
+
+Replaced Session 9's `WRITER_EMAIL` allowlist with a real role model. Fresh instance: every route redirects to `/setup` until an admin exists (Ghost CMS's own pattern, explicitly requested) — whoever completes it first becomes the founding admin (name, email, avatar), no email pre-check. After that, `/setup` is permanently inert, and every subsequent admin is added only by an existing admin sending an invitation (`/dashboard/settings` → email → `/invite/accept?token=...`). `/login` and the homepage subscribe form are now byte-for-byte identical, unrestricted, and only ever create `reader`-role users — admin is never reachable through them.
+
+### How We Built It
+
+- **Race-closing mechanism changed from an email allowlist to a real atomic lock.** New `setup_lock` table: a single row with an `INTEGER PRIMARY KEY`. `/setup`'s action does `INSERT INTO setup_lock (id) VALUES (1)` inside a try/catch — SQLite's primary-key constraint means exactly one concurrent request can ever succeed, regardless of how many hit `/setup` at once. This is a real concurrency guarantee, not an allowlist — anyone can _win_ the race honestly, nobody can _fake being_ the intended owner.
+- **Deviation from the approved plan, caught during implementation:** the plan said to add the lock as a column on the `publication` table (`adminSetupComplete`), reusing an atomic `UPDATE ... WHERE`. Turned out `publication` has zero rows in D1 — no prior session ever built a "create the publication" flow (Session 7's dashboard still reads `mock-data.ts`). An `UPDATE WHERE` against an empty table matches nothing, silently defeating the lock. Switched to a dedicated `setup_lock` table instead, which doesn't depend on any other row existing.
+- `user` table gains `role` (`enum: admin/reader`, default `reader`), `firstName`, `lastName` — added via Better Auth's `additionalFields` config (not just raw Drizzle columns) so Better Auth's own adapter and session typing know about them; `role` has `input: false` so it can never be set through the public signup path, only by our own direct Drizzle inserts in `/setup` and `/invite/accept`. `image` (avatar) already existed on Better Auth's core `user` table since Session 9 — reused as-is.
+- New `invitation` table (`inv_` prefix): email, `invitedByUserId`, token, status (pending/accepted/revoked), expiry.
+- **R2 provisioned** (`openletter-media` bucket, `wrangler r2 bucket create` + `dev-url enable` for a public `.r2.dev` serving URL — no custom serving endpoint needed). `src/lib/server/media.ts`'s `uploadAvatar` validates `image/*` + a 5MB cap, writes to `avatars/{uuid}.{ext}`, returns the public URL. `MEDIA_PUBLIC_URL` is a plain `wrangler.jsonc` `vars` entry (not a secret — it's meant to be public).
+- **Instant-login design changed from the plan during implementation.** The plan called for `/setup`/`/invite/accept` to establish a session immediately via `auth.api.magicLinkVerify` (no second email), matching Ghost's real UX. Investigated the actual API surface: doable in principle (`asResponse: true` returns a raw `Response` with a correctly-signed `Set-Cookie`), but relaying that into a SvelteKit form action means parsing the raw Set-Cookie string and re-applying it via `event.cookies.set()` — new code in the most security-sensitive path in the app. Chose the more conservative option instead: both flows create the user row directly, then call the same `auth.api.signInMagicLink` already used everywhere else and redirect through `/login/check-email` — one extra click, zero new session-establishment code, 100% reuse of Session 9's already-tested path.
+- **Global redirect-to-setup found a real gap in every existing e2e test.** Once `hooks.server.ts` redirects any non-`/setup`, non-`/api/*` route to `/setup` while no admin exists, every other e2e test — all 26 from Session 9 — would immediately redirect and fail against CI's always-fresh local D1. Fixed with a Playwright `globalSetup` (`e2e-global-setup.ts`) that actually completes `/setup` for real via `request.newContext().post()` before any test file runs. Hit the same CSRF gap Session 9 hit with curl (SvelteKit rejects cross-site POSTs without a matching `Origin` header) — fixed by setting `extraHTTPHeaders: { Origin: baseURL }` on the request context.
+- `databaseHooks.user.create.after` in `auth.ts` simplified: no more `WRITER_EMAIL` branch — every user created through the public magic-link path is a reader by construction now (admin creation bypasses this hook entirely via direct Drizzle inserts), so it unconditionally inserts a `subscriber` row.
+- `attemptWriterSignIn` helper deleted; `/login` and `/login/check-email`'s actions now call `auth.api.signInMagicLink` directly and unconditionally, identical to the homepage subscribe action.
+- `dashboard/+layout.server.ts` gate: `locals.user.role === 'admin'`, replacing the email comparison.
+- `WRITER_EMAIL` fully retired: removed from `.dev.vars`, `.dev.vars.example`, both CI workflows' `.dev.vars`-from-secrets steps, and the GH Actions secret (`gh secret delete`). Left as-is on the production Worker (`wrangler secret put` has no clean "unset" — noted as dead but harmless, not worth scripting removal for one var).
+- Test-only login endpoint (`/api/test/login`) updated: creates its test user with `role: 'admin'` directly via `testUtils`' `createUser` overrides (which accepts arbitrary extra fields), and upgrades any pre-existing test user that predates this session's role column.
+
+### In Scope
+
+- `/setup` wizard, atomically race-safe, Ghost-style global redirect until complete
+- `role`/`firstName`/`lastName` on `user`, `invitation` table, R2 avatar upload
+- Invitation flow (`/dashboard/settings` invite form → `/invite/accept`)
+- Unrestricted, unified `/login`/subscribe (readers only, never admin)
+- `WRITER_EMAIL` fully removed
+- Playwright `globalSetup` to keep the rest of the e2e suite working under the new global redirect
+
+### Out of Scope
+
+- Instant login on `/setup`/`/invite/accept` completion (evaluated, deliberately deferred — see above; both flows require one extra "check your inbox" click, same as any other login)
+- Revoking a pending invitation (no UI for it; the `status: 'revoked'` enum value exists in the schema but nothing sets it yet)
+- Publication name/slug/description still comes from `mock-data.ts`, not a real DB row — the `publication` table itself is still never actually populated by anything. A future session needs to build the actual "create/edit publication" flow this session's investigation revealed is still missing entirely.
+- Resend Segment/contact membership for subscribers — still deferred from Session 9, unrelated to this session's scope
+
+### Breaking Changes
+
+- The entire site is now inaccessible (redirects to `/setup`) on any fresh deploy until the founding admin completes setup. This is intentional (Ghost parity), but is a behavior change from Session 9 where the site was immediately browsable.
+- `WRITER_EMAIL` env var is dead — anything relying on it (there was nothing outside this codebase) would break. `dashboard` access no longer has anything to do with a specific email address at all.
+
+### Notes for Future Sessions
+
+- **The `publication` table has never had a row created in it, in any session.** Every session so far has read publication display data from `mock-data.ts`. Whoever builds the real "publication setup" flow (name/slug/description, matching `dashboard/settings`' existing but still-inert form) should decide whether it's folded into `/setup` itself or stays a separate step — deliberately not decided here to avoid scope creep on an already-large session.
+- **Local D1 state note for whoever picks this up next:** local dev/testing now requires `/setup` to be completed before anything else is reachable — if you wipe `.wrangler/state/v3/d1` and reapply migrations, either run `bun run test:e2e` once (its `globalSetup` will complete it) or manually POST to `/setup` with an `Origin` header before doing any other manual testing, or every page will bounce you back to `/setup`.
+- Windows note (unrelated to this session's logic, just recurring friction): `wrangler dev`/`workerd.exe` processes from e2e runs kept outliving `kill`/background-job cleanup during this session, repeatedly locking `.svelte-kit/cloudflare` for the next `rm -rf`/build. Had to manually `tasklist | grep workerd` + `taskkill` several times. Not a code issue, just a Windows dev-loop annoyance worth knowing about.
+
+---
+
 ## Hotfix 2 — Send magic-link emails from a verified Resend domain
 
 **Date & Time (IST):** 2026-07-24 09:23 IST

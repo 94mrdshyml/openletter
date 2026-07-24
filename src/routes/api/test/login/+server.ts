@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ platform, url }) => {
 		return new Response('Not found', { status: 404 });
 	}
 
-	const email = url.searchParams.get('email') ?? env.WRITER_EMAIL;
+	const email = url.searchParams.get('email') ?? 'test-writer@example.com';
 	const auth = createTestAuth(env, url.origin);
 	const ctx = await auth.$context;
 	const test = ctx.test;
@@ -22,7 +22,15 @@ export const GET: RequestHandler = async ({ platform, url }) => {
 	const db = getDb(env.DB);
 	const existing = await db.query.user.findFirst({ where: eq(userTable.email, email) });
 
-	const userId = existing ? existing.id : (await test.saveUser(test.createUser({ email }))).id;
+	let userId: string;
+	if (existing) {
+		if (existing.role !== 'admin') {
+			await db.update(userTable).set({ role: 'admin' }).where(eq(userTable.id, existing.id));
+		}
+		userId = existing.id;
+	} else {
+		userId = (await test.saveUser(test.createUser({ email, role: 'admin' }))).id;
+	}
 
 	const cookies = await test.getCookies({ userId, domain: url.hostname });
 	return json({ cookies });

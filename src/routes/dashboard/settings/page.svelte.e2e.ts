@@ -14,3 +14,11 @@ test('shows the publication settings fields', async ({ page }) => {
 	await expect(page.getByLabel('Publication name')).toHaveValue('The Meridian');
 	await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible();
 });
+
+test('sends an admin invite', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	await page.getByPlaceholder('colleague@example.com').fill('new-admin@example.com');
+	await page.getByRole('button', { name: 'Send invite' }).click();
+	await expect(page.getByText('Invitation sent.')).toBeVisible();
+});

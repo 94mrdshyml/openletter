@@ -25,6 +25,13 @@ export function createAuth(env: Env, baseURL: string) {
 				generateId: (options: { model: string }) => generateId(modelPrefix[options.model] ?? 'user')
 			}
 		},
+		user: {
+			additionalFields: {
+				role: { type: 'string', input: false, defaultValue: 'reader' },
+				firstName: { type: 'string', required: false },
+				lastName: { type: 'string', required: false }
+			}
+		},
 		plugins: [
 			magicLink({
 				sendMagicLink: async ({ email, url }) => {
@@ -35,28 +42,14 @@ export function createAuth(env: Env, baseURL: string) {
 		databaseHooks: {
 			user: {
 				create: {
+					// Every user created through the public magic-link path (never
+					// through /setup or /invite/accept, which insert directly via
+					// Drizzle and bypass this hook) is a reader by construction.
 					after: async (user) => {
-						if (user.email === env.WRITER_EMAIL) return;
 						await db.insert(schema.subscriber).values({ email: user.email }).onConflictDoNothing();
 					}
 				}
 			}
 		}
-	});
-}
-
-// Shared by /login's form action and /login/check-email's resend action.
-// Only ever sends for env.WRITER_EMAIL — every other email is a silent
-// no-op, so the response is identical either way and reveals nothing.
-export async function attemptWriterSignIn(
-	auth: ReturnType<typeof createAuth>,
-	env: Env,
-	email: string,
-	headers: Headers
-) {
-	if (email !== env.WRITER_EMAIL) return;
-	await auth.api.signInMagicLink({
-		body: { email, callbackURL: '/dashboard' },
-		headers
 	});
 }

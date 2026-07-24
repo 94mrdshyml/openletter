@@ -10,6 +10,7 @@ describe('generateId', () => {
 		expect(generateId('sess')).toMatch(/^sess_[0-9a-zA-Z]{24}$/);
 		expect(generateId('acct')).toMatch(/^acct_[0-9a-zA-Z]{24}$/);
 		expect(generateId('ver')).toMatch(/^ver_[0-9a-zA-Z]{24}$/);
+		expect(generateId('inv')).toMatch(/^inv_[0-9a-zA-Z]{24}$/);
 	});
 
 	it('generates unique ids', () => {

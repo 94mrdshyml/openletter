@@ -16,6 +16,17 @@ export const publication = sqliteTable('publication', {
 		.$defaultFn(() => new Date())
 });
 
+// Single-row lock claimed atomically by /setup: id's PRIMARY KEY constraint
+// means only one concurrent INSERT can ever succeed, regardless of how many
+// requests hit /setup at once — this is what actually closes the race, not
+// an email check. Deliberately not a column on `publication`, since no
+// publication row is ever created before /setup runs (no prior session
+// built a "create the publication" flow — dashboard/settings still reads
+// from mock data).
+export const setupLock = sqliteTable('setup_lock', {
+	id: integer('id').primaryKey()
+});
+
 export const post = sqliteTable('post', {
 	id: text('id')
 		.primaryKey()
@@ -63,7 +74,12 @@ export const user = sqliteTable('user', {
 	updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
 		.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
 		.$onUpdate(() => new Date())
+		.notNull(),
+	role: text('role', { enum: ['admin', 'reader'] })
 		.notNull()
+		.default('reader'),
+	firstName: text('first_name'),
+	lastName: text('last_name')
 });
 
 export const session = sqliteTable(
@@ -130,6 +146,25 @@ export const verification = sqliteTable(
 	},
 	(table) => [index('verification_identifier_idx').on(table.identifier)]
 );
+
+export const invitation = sqliteTable('invitation', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => generateId('inv')),
+	email: text('email').notNull(),
+	invitedByUserId: text('invited_by_user_id')
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	token: text('token').notNull().unique(),
+	status: text('status', { enum: ['pending', 'accepted', 'revoked'] })
+		.notNull()
+		.default('pending'),
+	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.$defaultFn(() => new Date()),
+	expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+	acceptedAt: integer('accepted_at', { mode: 'timestamp' })
+});
 
 export const userRelations = relations(user, ({ many }) => ({
 	sessions: many(session),
