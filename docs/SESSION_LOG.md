@@ -2,6 +2,28 @@
 
 ---
 
+## Hotfix 2 — Send magic-link emails from a verified Resend domain
+
+**Date & Time (IST):** 2026-07-24 09:23 IST
+**Status:** Completed
+**Branch:** fix/resend-verified-domain
+
+### What happened
+
+During Session 9's manual verification (real writer-login email), the sender was Resend's shared sandbox address `onboarding@resend.dev`, which can't reliably deliver to arbitrary recipients — flagged by the user immediately when reviewing the code.
+
+### Fix
+
+`src/lib/server/mail.ts`'s `from` field changed to `Open Letter <editor@finsave.mrdshyml.xyz>` — the user's own domain, confirmed verified via the Resend API (`GET /domains` → `status: "verified"`) before shipping.
+
+Also investigated, in the same pass, the user's separate concern that Better Auth "needs a URL along with the secret" — confirmed via a temporary local-only diagnostic (reverted before commit, never logs tokens in shipped code) that `baseURL` is already correctly derived per-request from `event.url.origin` in both `auth.ts` and `auth-test.ts`, producing a correct `http://localhost:4173/api/auth/magic-link/verify?...` URL locally. This is Better Auth's documented supported mode when no static `BETTER_AUTH_URL` is set. Not a bug — no change needed here.
+
+### Notes for Future Sessions
+
+- Resend sender is now `editor@finsave.mrdshyml.xyz` — if that domain's DNS/verification ever lapses, magic-link emails will silently fail to send (caught by `mail.ts`'s try/catch, logged generically, user flow unaffected but no email arrives). Worth a `wrangler d1`/Resend-side monitoring note if this becomes a recurring self-hosted-instance pain point.
+
+---
+
 ## Session 9 — Better Auth (writer login + reader subscribe identity)
 
 **Date & Time (IST):** 2026-07-24 08:58 IST
