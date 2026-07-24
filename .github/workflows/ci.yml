@@ -47,6 +47,9 @@ jobs:
       - name: Install Playwright browser (chromium)
         run: bunx playwright install --with-deps chromium
 
+      - name: Apply local D1 migrations
+        run: bunx wrangler d1 migrations apply openletter --local
+
       - name: E2E tests
         run: bun run test:e2e
 
