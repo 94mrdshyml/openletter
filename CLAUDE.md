@@ -293,7 +293,7 @@ Accumulates across sessions. Read this before touching related code.
 - **D1 bindings aren't available at module load time in Workers.** Better Auth must be instantiated per-request (e.g. `auth.with(d1Database)` inside a request handler), never at top-level module scope.
 - **The Better Auth catch-all route (`/api/auth/[...betterauth]`) must be defined explicitly in SvelteKit** — Wrangler pre-computes route paths at build time, so a dynamically-generated catch-all won't be picked up the way it might be on Node.
 - **Resend Segments vs Topics vs Audiences** — this project uses Segments (internal grouping for targeting sends) and Topics (reader-facing preference categories). Audiences is deprecated on Resend's side — never reach for it, even if older Resend examples online reference it.
-- **Single Topic vs multiple Topics per publication** — this is an open product question (see `PRD.md` §10). Don't hardcode an assumption about how many Topics a publication has; check whether that decision has been made before building UI around it.
+- **Single Topic per publication — resolved, not open.** `PRD.md` §10 settled this: one Resend Segment + one Topic per publication, created once in `/setup` (`src/lib/server/resend.ts`). Don't build multi-category Topic UI without a fresh explicit ask — it would reintroduce exactly the config surface the wedge is meant to remove.
 - **Custom domain support** — also an open question in `PRD.md` §10. Don't assume subdomain-only or custom-domain-only without checking current status.
 
 ---

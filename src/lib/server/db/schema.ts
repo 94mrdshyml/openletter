@@ -12,6 +12,8 @@ export const publication = sqliteTable('publication', {
 	description: text('description'),
 	category: text('category'),
 	logoUrl: text('logo_url'),
+	resendSegmentId: text('resend_segment_id'),
+	resendTopicId: text('resend_topic_id'),
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.$defaultFn(() => new Date())

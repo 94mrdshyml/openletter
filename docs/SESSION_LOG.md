@@ -2,6 +2,52 @@
 
 ---
 
+## Session 12 — Resend Segment/Topic subscriber sync
+
+**Date & Time (IST):** 2026-07-24 22:35 IST
+**Status:** Completed
+**Branch:** feature/session-12-resend-subscriber-sync
+
+### What We Built
+
+Closes the gap flagged since Session 9's "Out of Scope": the `subscriber` D1 row has existed since Session 8, but nothing ever called Resend's contact API — `resendContactId` was always null. Now, resolving PRD §10's open Topic-cardinality question (single Topic per publication, not multiple newsletter categories — matches the deployment-friction wedge in PRD §2), `/setup` provisions one Resend Segment ("Subscribers") and one Topic ("Newsletter") per publication, and every reader who completes the magic-link subscribe flow gets synced to Resend as a contact on both, with `subscriber.resendContactId` stored.
+
+### How We Built It
+
+- Researched Resend's actual current API (post-training-cutoff feature, not in prior knowledge) via their docs: Contacts are now global/independent entities; Segments (internal, `POST /segments {name}`) and Topics (reader-facing preference categories, `POST /topics {name, default_subscription}`) both attach to a contact via `POST /contacts {email, segments: [{id}], topics: [{id, subscription}]}`. Confirmed no `audience_id` requirement — the deprecated Audiences endpoint is never touched, matching `CLAUDE.md`'s existing instruction.
+- `src/lib/server/resend.ts` (new) — `createSegment`, `createTopic`, `syncSubscriberContact`. Same fail-open resilience pattern as `mail.ts`: any Resend error is caught, logged generically (never the email/payload), and returns `null` rather than throwing — a Resend outage must never block `/setup` or a reader's subscribe flow.
+- `publication` schema gains `resendSegmentId`/`resendTopicId` (nullable text). Populated once in `/setup`'s action, in the same request that creates the publication row — same "born atomically together" pattern Session 11 established for the publication row itself. If Resend calls fail, the ids just stay null; `syncSubscriberContact` no-ops when either id is missing, so a Resend outage at setup time doesn't cascade into every future subscribe attempt failing loudly (it just silently skips sync until fixed).
+- `src/lib/server/auth.ts`'s existing `databaseHooks.user.create.after` (the hook that already inserts the `subscriber` row for every reader created via the public magic-link path) now also looks up the single `publication` row's segment/topic ids and calls `syncSubscriberContact`, writing the returned contact id back onto the `subscriber` row.
+- **PRD §10 resolved, not left open:** single Topic per publication by default. Prompting writers to define multiple newsletter categories at setup would be exactly the configuration surface OpenLetter's wedge (PRD §2) is meant to remove — no session ever asked for multi-category UI, and inventing one would violate `CLAUDE.md`'s Simplicity First rule. `PRD.md` §10 and `CLAUDE.md`'s Known Gotchas updated to reflect the decision instead of leaving future sessions to re-ask.
+- Verified for real, not just typechecked: local e2e run's server logs showed zero "Failed to create Resend segment/topic" or "Failed to sync Resend contact" errors across the full 33-test suite (which completes a real `/setup` via `globalSetup` and a real subscribe flow) — meaning the actual Resend API calls succeeded against the live sandbox key, not just passed typecheck.
+
+### In Scope
+
+- `src/lib/server/resend.ts`: Segment/Topic creation, contact sync
+- `publication.resendSegmentId`/`resendTopicId` columns + migration
+- `/setup` provisions the Segment+Topic once per publication
+- Reader subscribe hook (`auth.ts`) syncs every new reader to Resend, stores `resendContactId`
+- PRD §10 Topic-cardinality question resolved and documented
+
+### Out of Scope
+
+- **Publish → email (PRD §6 #5)** — sending a broadcast to the Segment when a post is published. Not asked for this session; needs its own pass once the post editor (still unbuilt) exists.
+- **Unsubscribe/preferences page (PRD §6 #6)** — reader-facing link into Resend's hosted Topic preference page. Not investigated this session.
+- **Backfilling existing subscriber rows** (readers who subscribed in Sessions 9–11, before this session, still have `resendContactId: null`) — no bulk-sync job built; only new subscribes going forward are synced. Flagged, not built — not asked for.
+- Real subscriber counts on the dashboard (Session 11's Notes item) — this session makes the sync exist, but `dashboard/+page.svelte` etc. still read `mock-data.ts`; wiring the dashboard to `COUNT(subscriber)` is unrelated follow-up.
+
+### Breaking Changes
+
+- NONE (additive schema columns only; existing subscribe/setup flows behave identically to a caller, just with a new side effect)
+
+### Notes for Future Sessions
+
+- **Existing subscribers (pre-Session-12) are not backfilled.** If a bulk Resend sync is ever wanted for the handful of readers who subscribed before this session, it's a one-off script over `subscriber` rows where `resendContactId IS NULL`, not something this session built proactively.
+- **Segment/Topic names are fixed strings** ("Subscribers", "Newsletter"), not derived from the publication name — deliberate, so a publication rename (`dashboard/settings`) never needs to sync a Resend rename too. If that mismatch ever becomes a real user complaint, it's a `dashboard/settings`-side follow-up, not something to silently add here.
+- **Publish → email and the Topic preference/unsubscribe page are the two PRD §6 items this session does not touch** — both need the Segment/Topic ids now sitting on `publication`, so this session is the unblocking prerequisite for either.
+
+---
+
 ## Hotfix 3 — Logout button + redirect authenticated users off /login
 
 **Date & Time (IST):** 2026-07-24 16:05 IST

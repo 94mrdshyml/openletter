@@ -1,10 +1,12 @@
 import { betterAuth } from 'better-auth';
+import { eq } from 'drizzle-orm';
 import { magicLink } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { getDb } from './db';
 import * as schema from './db/schema';
 import { generateId, type IdPrefix } from './id';
 import { sendMagicLinkEmail } from './mail';
+import { syncSubscriberContact } from './resend';
 
 const modelPrefix: Record<string, IdPrefix> = {
 	user: 'user',
@@ -47,6 +49,20 @@ export function createAuth(env: Env, baseURL: string) {
 					// Drizzle and bypass this hook) is a reader by construction.
 					after: async (user) => {
 						await db.insert(schema.subscriber).values({ email: user.email }).onConflictDoNothing();
+
+						const pub = await db.query.publication.findFirst();
+						const resendContactId = await syncSubscriberContact(
+							env,
+							user.email,
+							pub?.resendSegmentId ?? null,
+							pub?.resendTopicId ?? null
+						);
+						if (resendContactId) {
+							await db
+								.update(schema.subscriber)
+								.set({ resendContactId })
+								.where(eq(schema.subscriber.email, user.email));
+						}
 					}
 				}
 			}
