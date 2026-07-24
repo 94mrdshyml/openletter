@@ -9,7 +9,7 @@ export async function sendMagicLinkEmail(env: Env, to: string, url: string) {
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				from: 'OpenLetter <onboarding@resend.dev>',
+				from: 'Open Letter <editor@finsave.mrdshyml.xyz>',
 				to,
 				subject: 'Your sign-in link',
 				html: `<p>Click below to sign in:</p><p><a href="${url}">${url}</a></p>`
