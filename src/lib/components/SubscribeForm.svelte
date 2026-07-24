@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 
-	let { maxWidth = '440px' }: { maxWidth?: string } = $props();
+	let { maxWidth = '440px', email = '' }: { maxWidth?: string; email?: string } = $props();
 	let subscribed = $state(false);
 </script>
 
@@ -25,6 +25,7 @@
 			class="input"
 			type="email"
 			name="email"
+			value={email}
 			placeholder="your@email.com"
 			required
 			style="flex:1;border-right:none;font-size:15px;padding:10px 14px;min-height:42px"

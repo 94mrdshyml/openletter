@@ -2,6 +2,47 @@
 
 ---
 
+## Session 13 — Reader-facing /welcome page
+
+**Date & Time (IST):** 2026-07-24 23:15 IST
+**Status:** Completed
+**Branch:** feature/session-13-welcome-page
+
+### What We Built
+
+`/welcome` was previously a writer-facing post-deploy onboarding screen ("Your publication is live" + links to Configure publication / Write first post), built in Session 7 with mock/hardcoded copy. This session repurposes the route entirely into a reader-facing welcome/subscribe landing page: publication logo, name, tagline, and a subscribe form — matching the requested scope exactly. If a reader is already signed in (has a Better Auth session), the subscribe email field is prefilled with their session email.
+
+### How We Built It
+
+- `src/routes/welcome/+page.svelte` rewritten from scratch — drops `SettingsIcon`/`PlusIcon` and the "Next steps" admin card entirely (no longer applicable to a reader-facing page), reuses the existing `SubscribeForm` component and the same editorial layout conventions already used on the public homepage (`(public)/+page.svelte`).
+- `src/routes/welcome/+page.server.ts` (new) — minimal `load` returning `locals.user?.email ?? null` as `readerEmail`, so the page can prefill without duplicating session-reading logic.
+- `src/lib/components/SubscribeForm.svelte` gained one new optional prop, `email` (default `''`), applied as the input's `value` — reused as-is on the homepage (defaults to empty, no behavior change there) and on `/welcome` (passed the reader's session email when present).
+- `src/lib/test/auth.ts`'s `loginAsTestWriter` extended with an optional `email` param (defaults to the existing hardcoded test address) so e2e tests can log in as an arbitrary user to assert the prefill behavior — reused the existing test-login endpoint's already-supported `?email=` query param instead of adding a new helper.
+- `src/routes/welcome/page.svelte.e2e.ts` rewritten: navigation-stays-on-route test (unchanged pattern), a logged-out test asserting the publication name renders and the email field starts empty, and a logged-in test asserting the field is prefilled with the session's email.
+
+### In Scope
+
+- `/welcome` fully repurposed to reader-facing: logo, name, tagline, subscribe form
+- Email prefill for signed-in readers
+- E2E coverage for logged-out and logged-in states
+
+### Out of Scope
+
+- Custom domain / subdomain link-out from this page (unrelated, no request to add one)
+- Any change to the writer's actual post-deploy flow — nothing currently links to `/welcome` from the CLI/deploy path in this codebase, so no other route needed updating as a result of this repurpose
+
+### Breaking Changes
+
+- `/welcome` no longer shows the writer onboarding links (Configure publication, Write your first post) — if anything external depends on that copy or those links existing at this URL, it's gone. Confirmed with the user before starting that this full replacement was intended.
+
+### Notes for Future Sessions
+
+- Ran this session in an isolated `git worktree` off `main` (branch `feature/session-13-welcome-page`) rather than the primary working directory, because another agent had uncommitted changes in-flight there (`feature/session-12-resend-subscriber-sync`, since merged as #14). No files were shared between the two sessions' diffs, so this was a pure isolation precaution, not a conflict resolution — worth knowing this pattern exists if two sessions ever need to run concurrently again.
+- **Repo-wide Prettier formatting drift discovered, pre-existing, not caused by this session:** `bun run lint` fails on ~95 files across the repo (confirmed by running `prettier --check` against the same files in the primary, untouched working directory — the drift already exists on `main`, independent of any change here). Not fixed here since a repo-wide reformat is well outside this session's scope and would produce a huge unrelated diff — flagging so a future session doesn't mistake it for something this session broke.
+- No route currently links to `/welcome` from within the app (writer dashboard or otherwise) — it's reachable only by direct navigation. Not addressed here since it wasn't part of the request; a future session wiring up the CLI's actual post-deploy redirect (or deciding this route should be linked from somewhere) should check that first.
+
+---
+
 ## Session 12 — Resend Segment/Topic subscriber sync
 
 **Date & Time (IST):** 2026-07-24 22:35 IST
