@@ -86,5 +86,6 @@ Two implementation notes carried over from stack discussion:
 ## 10. Open Questions
 
 - Custom domain support in v1, or subdomain-only (e.g. `*.workers.dev`) until v1.1?
-- Single Topic per publication by default, or prompt writers to define multiple newsletter categories at setup?
 - What's the minimum viable writer dashboard — is a raw subscriber count enough, or does open/click data need to be visible in v1 for the dashboard to feel credible?
+
+**Resolved:** Single Topic per publication by default, not multiple newsletter categories — matches the deployment-friction wedge (§2), since prompting writers to define categories at setup is exactly the kind of configuration surface OpenLetter is meant to remove. One Resend Segment ("Subscribers") and one Topic ("Newsletter") are created per publication, once, in `/setup`. See `src/lib/server/resend.ts`.

@@ -7,6 +7,7 @@ import { publication, setupLock, user as userTable } from '$lib/server/db/schema
 import { generateId } from '$lib/server/id';
 import { uploadAvatar, uploadLogo } from '$lib/server/media';
 import { slugify } from '$lib/server/slug';
+import { createSegment, createTopic } from '$lib/server/resend';
 
 export const load: PageServerLoad = async ({ platform }) => {
 	const db = getDb(platform!.env.DB);
@@ -49,12 +50,21 @@ export const actions: Actions = {
 			logoUrl = await uploadLogo(env, pubLogo);
 		}
 
+		// One Segment + one Topic per publication, created once here (v1 is
+		// single-writer/single-publication — see PRD.md §10, no per-publication
+		// newsletter-category UI). Resend failures don't block setup; the ids
+		// just stay null and subscriber sync becomes a no-op (see resend.ts).
+		const resendSegmentId = await createSegment(env, 'Subscribers');
+		const resendTopicId = await createTopic(env, 'Newsletter');
+
 		await db.insert(publication).values({
 			name: pubName,
 			slug: slugify(pubName),
 			tagline: pubTagline,
 			category: pubCategory,
-			logoUrl
+			logoUrl,
+			resendSegmentId,
+			resendTopicId
 		});
 
 		const existing = await db.query.user.findFirst({ where: eq(userTable.email, email) });
