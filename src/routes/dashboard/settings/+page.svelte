@@ -1,68 +1,79 @@
 <script lang="ts">
-	import { publication } from '$lib/mock-data';
-	import type { ActionData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { form }: { form: ActionData } = $props();
-
-	function handleSave(e: SubmitEvent) {
-		e.preventDefault();
-	}
+	let { data, form }: { data: PageData; form: ActionData } = $props();
+	const pub = $derived(data.publication);
 </script>
 
 <svelte:head>
-	<title>Settings · {publication.name}</title>
+	<title>Settings · {pub?.name ?? 'Settings'}</title>
 </svelte:head>
 
 <div style="padding:40px;max-width:520px">
 	<h2 style="font-size:28px;margin:0 0 32px;letter-spacing:-0.02em">Settings</h2>
-	<form onsubmit={handleSave} style="display:flex;flex-direction:column;gap:24px">
+
+	{#if form?.saved}
+		<p style="font-size:14px;color:var(--color-accent);margin:0 0 20px">Saved.</p>
+	{/if}
+
+	<form
+		method="POST"
+		action="?/save"
+		enctype="multipart/form-data"
+		style="display:flex;flex-direction:column;gap:24px"
+	>
 		<div class="field">
 			<label for="pub-name">Publication name</label>
-			<input class="input" id="pub-name" value={publication.name} />
+			<input class="input" id="pub-name" name="name" value={pub?.name ?? ''} required />
 		</div>
 		<div class="field">
-			<label for="pub-slug">Slug</label>
-			<div style="display:flex;align-items:center;gap:0">
-				<span
-					style="font-size:14px;color:var(--color-neutral-500);padding:8px 0 8px 10px;background:var(--color-surface);border:1px solid var(--color-divider);border-right:none;min-height:36px;display:flex;align-items:center;white-space:nowrap"
-					>https://</span
-				>
-				<input class="input" id="pub-slug" value={publication.slug} style="border-left:none" />
-			</div>
+			<label for="pub-tagline">Tagline</label>
+			<input class="input" id="pub-tagline" name="tagline" value={pub?.tagline ?? ''} />
 		</div>
 		<div class="field">
 			<label for="pub-description">Description</label>
-			<textarea class="input" id="pub-description" rows="2">{publication.description}</textarea>
+			<textarea class="input" id="pub-description" name="description" rows="2"
+				>{pub?.description ?? ''}</textarea
+			>
+		</div>
+		<div class="field">
+			<label for="pub-category">Category</label>
+			<input
+				class="input"
+				id="pub-category"
+				name="category"
+				value={pub?.category ?? ''}
+				placeholder="Politics, Tech, Fiction…"
+			/>
 		</div>
 		<div class="field">
 			<label for="pub-logo">Publication logo</label>
 			<div style="display:flex;align-items:center;gap:16px">
 				<div
-					style="width:64px;height:64px;background:var(--color-surface);border:2px dashed var(--color-divider);display:grid;place-items:center"
+					style="width:64px;height:64px;background:var(--color-surface);border:2px dashed var(--color-divider);display:grid;place-items:center;overflow:hidden"
 				>
-					<svg
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="var(--color-neutral-400)"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-					>
-						<rect width="18" height="18" x="3" y="3"></rect>
-						<circle cx="9" cy="9" r="2"></circle>
-						<path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
-					</svg>
+					{#if pub?.logoUrl}
+						<img src={pub.logoUrl} alt="" style="width:100%;height:100%;object-fit:cover" />
+					{:else}
+						<svg
+							width="20"
+							height="20"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="var(--color-neutral-400)"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<rect width="18" height="18" x="3" y="3"></rect>
+							<circle cx="9" cy="9" r="2"></circle>
+							<path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+						</svg>
+					{/if}
 				</div>
 				<div>
-					<button
-						type="button"
-						class="btn btn-secondary"
-						style="padding:6px 14px;font-size:13px;min-height:32px"
-						id="pub-logo">Upload logo</button
-					>
+					<input class="input" id="pub-logo" name="logo" type="file" accept="image/*" />
 					<p style="font-size:12px;color:var(--color-neutral-400);margin:6px 0 0">
 						Optional. Your publication name is displayed if no logo is set.
 					</p>

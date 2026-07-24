@@ -2,6 +2,53 @@
 
 ---
 
+## Session 11 — Real publication data (name, tagline, category, logo)
+
+**Date & Time (IST):** 2026-07-24 15:09 IST
+**Status:** Completed
+**Branch:** feature/session-11-publication-setup
+
+### What We Built
+
+The `publication` table had zero rows in D1 across every prior session — every page (homepage, nav, post pages, login/check-email/welcome titles, dashboard settings) displayed hardcoded values from `mock-data.ts`, and `dashboard/settings`'s form was inert (`onsubmit` just called `preventDefault()`). This session makes the publication entity fully real: `/setup` now collects publication name/tagline/category/logo alongside the admin account and creates the row atomically in the same request; `dashboard/settings` reads and writes the real row; every public/auth page that displays the publication name/description now reads real data via a new root `+layout.server.ts` instead of importing the mock object.
+
+### How We Built It
+
+- `publication` schema gains a `category` column (free-text, no fixed taxonomy — nothing in the request implied one, and inventing an enum without being asked would be exactly the kind of unrequested "flexibility" `CLAUDE.md` warns against).
+- `src/routes/+layout.server.ts` (new, root-level) — `db.query.publication.findFirst()`, returned as `{ publication }`. Flows to every route automatically via SvelteKit's parent-layout data merging; no per-page load functions needed for the ~10 pages that only display the name/description.
+- `/setup`'s action now also collects `pubName`/`pubTagline`/`pubCategory`/`pubLogo` and inserts the `publication` row in the same request that claims `setup_lock` and creates the admin — guarantees a publication row exists by the time the site is usable at all, avoiding a "logged in but publication still unset" limbo state.
+- `src/lib/server/slug.ts` (new) — `slugify(name)`, used to auto-derive the publication's slug from its name at creation and on every settings save. The settings UI's old manual slug field was removed — user asked for "name, tagline, logo, category," not slug editing, and auto-deriving it is simpler than exposing a field that could produce an inconsistent slug/name pair.
+- `src/lib/server/media.ts` generalized: the avatar-only `uploadAvatar` became a thin wrapper over a shared `uploadImage(env, file, folder)`, with a new `uploadLogo` wrapper writing to `logos/` instead of `avatars/` — same validation, same R2 bucket, different key prefix.
+- `dashboard/settings/+page.server.ts` gains a real `load` (fetches the one `publication` row) and a `save` action (updates name/tagline/description/category/logo, re-deriving the slug from the new name). The pre-existing `invite` action is untouched.
+- **Deliberate scope boundary, not an oversight:** `dashboard/+page.svelte`, `dashboard/analytics/+page.svelte`, and `dashboard/posts/new/+page.svelte` still read `publication.name` (and, for the first two, `subscriberCount`/`analytics`) from `mock-data.ts`. Those three files couple the publication name to unrelated mock stats (subscriber counts, open/click rates) that have no real backing yet — wiring just the name to real data while leaving the stats mock, in the same file, would be a more confusing half-real state than leaving all three consistently mock for now. Every other display surface (public homepage, post pages, `PublicNav`, `AdminNav`, `/login`, `/login/check-email`, `/invite/accept`, `/welcome`, `dashboard/posts`) now reads real data.
+- `e2e-global-setup.ts` updated to submit a `pubName` field (`'The Meridian'`) alongside the admin fields — the existing e2e suite's assertions that expected "The Meridian" (from mock data) now get it from the real DB row instead, no test-assertion changes needed beyond that.
+
+### In Scope
+
+- `publication.category` column + migration
+- `/setup` collects and creates the publication row atomically with the admin account
+- `dashboard/settings` reads/writes the real row (name, tagline, description, category, logo)
+- Root layout load + real data on every public/auth-facing display surface
+- `src/lib/server/slug.ts`, generalized `media.ts` (`uploadLogo`)
+
+### Out of Scope
+
+- `dashboard/+page.svelte`, `dashboard/analytics/+page.svelte`, `dashboard/posts/new/+page.svelte` — still fully mock (name + stats both), pending real subscriber-count/analytics wiring (unrelated to this session)
+- Manual slug editing — auto-derived from name only
+- A dedicated `/setup` confirmation of what was just created — same "redirect through check-email" flow as before, unchanged
+
+### Breaking Changes
+
+- `dashboard/settings`'s "Slug" field is gone from the UI (still exists in the DB, auto-derived from name on every save)
+- Fresh instances now require filling in a publication name during `/setup` (previously — pre-Session-10 — the concept didn't exist at all; this isn't a regression against anything real, just noting the form got one more required field)
+
+### Notes for Future Sessions
+
+- The three still-mock dashboard pages (overview, analytics, new-post's subscriber count) are the natural next real-data target, but need actual subscriber counting and open/click-rate computation first (the latter likely from Resend's API per PRD §6 #7) — bigger scope than this session, deliberately not started here.
+- `slugify()` has no uniqueness handling (no "-2" suffix on collision) — irrelevant today since there's only ever one `publication` row, but worth remembering if this pattern gets reused for something with multiple rows (e.g. post slugs already have their own independent uniqueness via a DB constraint, unrelated to this helper).
+
+---
+
 ## Session 10 — Ghost-style setup wizard, admin/reader roles, invitations, R2 avatars
 
 **Date & Time (IST):** 2026-07-24 11:57 IST

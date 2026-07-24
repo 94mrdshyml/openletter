@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { publication } from '$lib/mock-data';
+	import { page } from '$app/state';
 
 	let { current }: { current: 'dashboard' | 'analytics' | 'posts' | 'settings' } = $props();
+
+	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 
 	const tabs = [
 		{ id: 'dashboard', label: 'Dashboard', href: resolve('/dashboard') },
@@ -24,7 +26,7 @@
 	<span
 		style="font-family:var(--font-heading);font-weight:800;font-size:16px;color:var(--color-text);margin-right:auto;letter-spacing:-0.01em"
 	>
-		{publication.name}
+		{name}
 	</span>
 	{#each tabs as tab (tab.id)}
 		<a

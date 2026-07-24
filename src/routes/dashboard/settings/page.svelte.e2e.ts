@@ -15,6 +15,16 @@ test('shows the publication settings fields', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible();
 });
 
+test('saves publication changes for real', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	await page.getByLabel('Tagline').fill('Updated tagline for real');
+	await page.getByRole('button', { name: 'Save changes' }).click();
+	await expect(page.getByText('Saved.')).toBeVisible();
+	await page.reload();
+	await expect(page.getByLabel('Tagline')).toHaveValue('Updated tagline for real');
+});
+
 test('sends an admin invite', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard/settings');

@@ -11,7 +11,8 @@ export default async function globalSetup() {
 		multipart: {
 			email: 'test-admin@example.com',
 			firstName: 'Test',
-			lastName: 'Admin'
+			lastName: 'Admin',
+			pubName: 'The Meridian'
 		}
 	});
 	if (!res.ok() && res.status() !== 303) {
