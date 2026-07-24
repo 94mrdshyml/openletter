@@ -10,11 +10,20 @@
 	},
 	"workers_dev": true,
 	"preview_urls": true,
+	"vars": {
+		"MEDIA_PUBLIC_URL": "https://pub-425f652dec76445799a34bc6baf8a31a.r2.dev"
+	},
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "openletter",
 			"database_id": "8c9b63c1-d1af-488c-a379-9c5e3c4bc559"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "MEDIA",
+			"bucket_name": "openletter-media"
 		}
 	]
 }

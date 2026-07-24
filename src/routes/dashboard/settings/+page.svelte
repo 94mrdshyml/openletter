@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { publication } from '$lib/mock-data';
+	import type { ActionData } from './$types';
+
+	let { form }: { form: ActionData } = $props();
 
 	function handleSave(e: SubmitEvent) {
 		e.preventDefault();
@@ -74,4 +77,31 @@
 			>
 		</div>
 	</form>
+
+	<div style="border-top:2px solid var(--color-divider);margin-top:40px;padding-top:32px">
+		<h3 style="font-size:18px;margin:0 0 8px">Invite an admin</h3>
+		<p style="font-size:13px;color:var(--color-neutral-500);margin:0 0 16px">
+			Subsequent admins can only be added by invitation.
+		</p>
+		{#if form?.invited}
+			<p style="font-size:14px;color:var(--color-accent);margin:0 0 16px">Invitation sent.</p>
+		{/if}
+		<form method="POST" action="?/invite" style="display:flex;gap:8px">
+			<input
+				class="input"
+				type="email"
+				name="email"
+				placeholder="colleague@example.com"
+				required
+				style="flex:1;font-size:15px;padding:10px 14px;min-height:42px"
+			/>
+			<button
+				type="submit"
+				class="btn btn-secondary"
+				style="padding:10px 20px;min-height:42px;font-size:14px;white-space:nowrap"
+			>
+				Send invite
+			</button>
+		</form>
+	</div>
 </div>

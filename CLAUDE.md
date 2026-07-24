@@ -164,6 +164,7 @@ Prefixes (extend this list as new entities are added — don't invent a new pref
 | `sess_` | Session (Better Auth `session`)                 |
 | `acct_` | Account (Better Auth `account`)                 |
 | `ver_`  | Verification token (Better Auth `verification`) |
+| `inv_`  | Admin invitation                                |
 
 Implementation rule: one shared ID-generation helper (e.g. `src/lib/server/id.ts`) that takes a prefix and returns the full ID — no ad hoc per-table ID logic. Better Auth supports custom ID generation via its `advanced.database.generateId` config; wire it to the same helper so Better Auth's own tables match the scheme instead of falling back to its default IDs.
 

@@ -8,10 +8,6 @@ RESEND_API_KEY=
 # Better Auth secret — any random 32+ byte string, e.g. `openssl rand -hex 32`
 BETTER_AUTH_SECRET=
 
-# The only email allowed to claim the writer/admin account. Not printed
-# anywhere on mismatch (no oracle) — see CLAUDE.md's Known Gotchas.
-WRITER_EMAIL=
-
 # Local/CI only — gates the test-only login-bypass endpoint used by e2e
 # tests (src/routes/api/test/login). Never set this in production secrets.
 ENABLE_TEST_AUTH=

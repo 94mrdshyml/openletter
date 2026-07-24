@@ -30,6 +30,13 @@ export function createTestAuth(env: Env, baseURL: string) {
 				generateId: (options: { model: string }) => generateId(modelPrefix[options.model] ?? 'user')
 			}
 		},
+		user: {
+			additionalFields: {
+				role: { type: 'string', input: false, defaultValue: 'reader' },
+				firstName: { type: 'string', required: false },
+				lastName: { type: 'string', required: false }
+			}
+		},
 		plugins: [
 			magicLink({
 				sendMagicLink: async ({ email, url }) => {

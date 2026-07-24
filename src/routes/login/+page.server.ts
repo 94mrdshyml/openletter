@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
-import { createAuth, attemptWriterSignIn } from '$lib/server/auth';
+import { createAuth } from '$lib/server/auth';
 
 export const actions: Actions = {
 	default: async ({ request, platform, url }) => {
@@ -8,7 +8,10 @@ export const actions: Actions = {
 		const email = String(data.get('email') ?? '');
 
 		const auth = createAuth(platform!.env, url.origin);
-		await attemptWriterSignIn(auth, platform!.env, email, request.headers);
+		await auth.api.signInMagicLink({
+			body: { email, callbackURL: '/dashboard' },
+			headers: request.headers
+		});
 
 		redirect(303, `/login/check-email?email=${encodeURIComponent(email)}`);
 	}
