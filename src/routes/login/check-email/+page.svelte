@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { publication } from '$lib/mock-data';
 
-	const writerEmail = 'writer@' + publication.slug;
+	let email = $derived(page.url.searchParams.get('email') ?? '');
 </script>
 
 <svelte:head>
@@ -19,19 +20,23 @@
 			</div>
 			<h2 style="font-size:28px;margin:0 0 8px;letter-spacing:-0.02em">Check your inbox</h2>
 			<p style="font-size:15px;color:var(--color-neutral-600);margin:0 0 24px;line-height:1.6">
-				A sign-in link has been sent to <strong style="color:var(--color-text)"
-					>{writerEmail}</strong
-				>. Click it to access your dashboard.
+				A sign-in link has been sent to <strong style="color:var(--color-text)">{email}</strong>.
+				Click it to access your dashboard.
 			</p>
 			<div style="border-top:2px solid var(--color-divider);padding:16px 0 0">
-				<p style="font-size:13px;color:var(--color-neutral-500);margin:0;line-height:1.5">
-					Didn't receive it? Check your spam folder, or <button
-						type="button"
+				<form
+					method="POST"
+					style="font-size:13px;color:var(--color-neutral-500);margin:0;line-height:1.5"
+				>
+					<input type="hidden" name="email" value={email} />
+					Didn't receive it? Check your spam folder, or
+					<button
+						type="submit"
 						class="btn-ghost"
 						style="background:none;border:none;padding:0;font:inherit;cursor:pointer;color:var(--color-accent);text-decoration:none;font-family:var(--font-heading);font-weight:800"
 						>resend the link</button
 					>.
-				</p>
+				</form>
 			</div>
 		</div>
 	</div>
