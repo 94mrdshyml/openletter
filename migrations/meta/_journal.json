@@ -1,41 +1,41 @@
 {
-  "version": "7",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "6",
-      "when": 1784810949252,
-      "tag": "0000_rich_lightspeed",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1784879114101,
-      "tag": "0001_sad_starbolt",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1784889122106,
-      "tag": "0002_majestic_edwin_jarvis",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1784901473320,
-      "tag": "0003_black_infant_terrible",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1784912305683,
-      "tag": "0004_nervous_nighthawk",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1784810949252,
+			"tag": "0000_rich_lightspeed",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1784879114101,
+			"tag": "0001_sad_starbolt",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1784889122106,
+			"tag": "0002_majestic_edwin_jarvis",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "6",
+			"when": 1784901473320,
+			"tag": "0003_black_infant_terrible",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "6",
+			"when": 1784912305683,
+			"tag": "0004_nervous_nighthawk",
+			"breakpoints": true
+		}
+	]
 }
