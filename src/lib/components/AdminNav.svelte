@@ -42,4 +42,12 @@
 	<a href={resolve('/')} style="font-size:14px;color:var(--color-neutral-500);text-decoration:none">
 		View publication →
 	</a>
+	<form method="POST" action="/logout" style="display:contents">
+		<button
+			type="submit"
+			style="background:none;border:none;padding:0;font:inherit;cursor:pointer;font-size:14px;color:var(--color-neutral-500)"
+		>
+			Log out
+		</button>
+	</form>
 </nav>

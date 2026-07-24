@@ -20,3 +20,12 @@ test('shows subscriber count and published posts', async ({ page }) => {
 	await expect(page.getByText('847')).toBeVisible();
 	await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
 });
+
+test('logs out and re-gates the dashboard', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard');
+	await page.getByRole('button', { name: 'Log out' }).click();
+	await expect(page).toHaveURL(/\/$/);
+	await page.goto('/dashboard');
+	await expect(page).toHaveURL(/\/login/);
+});
