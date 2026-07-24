@@ -1,4 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { loginAsTestWriter } from '../../lib/test/auth';
+
+test('redirects an already-authenticated admin to /dashboard', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/login');
+	await expect(page).toHaveURL(/\/dashboard/);
+});
 
 test('stays on /login when navigated to', async ({ page }) => {
 	await page.goto('/login');

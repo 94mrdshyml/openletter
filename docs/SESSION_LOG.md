@@ -2,6 +2,28 @@
 
 ---
 
+## Hotfix 3 — Logout button + redirect authenticated users off /login
+
+**Date & Time (IST):** 2026-07-24 16:05 IST
+**Status:** Completed
+**Branch:** fix/logout-and-login-redirect
+
+### What happened
+
+User-reported after using the live site post-Session-11: no way to log out from the dashboard, and visiting `/login` while already signed in still showed the sign-in form instead of redirecting away.
+
+### Fix
+
+- `src/routes/logout/+server.ts` (new) — POST handler. Routes through the real `/api/auth/sign-out` endpoint via `auth.handler()` (not a manually relayed JS API call) so its `Set-Cookie` header, which actually clears the session cookie, is produced correctly by Better Auth itself — then forwards those headers onto our own `303` redirect to `/`. Same conservative pattern Session 10 already established for auth-adjacent flows: prefer the real HTTP endpoint over hand-relaying cookie state.
+- `AdminNav.svelte` gained a "Log out" button (`<form method="POST" action="/logout">`), next to "View publication →".
+- `login/+page.server.ts` gained a `load` that redirects any already-authenticated visitor away — `/dashboard` if `role === 'admin'`, `/` otherwise (covers a signed-in reader hitting `/login`, not just admins).
+
+### Notes for Future Sessions
+
+- No equivalent "log out" affordance exists anywhere reader-facing (readers have no dashboard to put one in) — not raised as an issue, just noting it's asymmetric by design so it doesn't get "fixed" by accident later without checking whether it's actually wanted.
+
+---
+
 ## Session 11 — Real publication data (name, tagline, category, logo)
 
 **Date & Time (IST):** 2026-07-24 15:09 IST

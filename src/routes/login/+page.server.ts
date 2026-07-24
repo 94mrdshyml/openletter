@@ -1,6 +1,12 @@
 import { redirect } from '@sveltejs/kit';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 import { createAuth } from '$lib/server/auth';
+
+export const load: PageServerLoad = async ({ locals }) => {
+	if (locals.user) {
+		redirect(303, locals.user.role === 'admin' ? '/dashboard' : '/');
+	}
+};
 
 export const actions: Actions = {
 	default: async ({ request, platform, url }) => {
