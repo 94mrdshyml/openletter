@@ -1,12 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { publication } from '$lib/mock-data';
-
-	function handleSubmit(e: SubmitEvent) {
-		e.preventDefault();
-		goto(resolve('/login/check-email'));
-	}
 </script>
 
 <svelte:head>
@@ -26,7 +19,7 @@
 			<p style="font-size:14px;color:var(--color-neutral-600);margin:0 0 28px;line-height:1.5">
 				Enter your email to receive a sign-in link.
 			</p>
-			<form onsubmit={handleSubmit}>
+			<form method="POST">
 				<div class="field" style="margin:0 0 16px">
 					<label for="email">Email address</label>
 					<input

@@ -2,6 +2,64 @@
 
 ---
 
+## Session 9 — Better Auth (writer login + reader subscribe identity)
+
+**Date & Time (IST):** 2026-07-24 08:58 IST
+**Status:** Completed
+**Branch:** feature/session-09-better-auth
+
+### What We Built
+
+Real Better Auth (`magicLink` plugin) wired against D1. The writer can actually log in and `/dashboard/*` is genuinely gated for the first time — Sessions 1–8 left it wide open. Readers get a real identity (Better Auth session + a `subscriber` row) when they use the homepage subscribe form. Resend Segment/contact membership is explicitly **not** part of this session (see Out of Scope).
+
+### How We Built It
+
+- **Writer claim is allowlist-gated, not pure first-signup.** A `WRITER_EMAIL` env var (kept as a secret, not in `wrangler.jsonc`, since this is a public repo and it's the user's PII) is the only email allowed to authenticate as the writer. `src/routes/login/+page.server.ts`'s form action checks the submitted email against it server-side, before ever calling Better Auth, and redirects to the same "check your inbox" page regardless of match — no oracle revealing whether an email is the real writer. This closes the race where a stranger reaching the deployed Worker before the writer's first login could otherwise claim admin.
+- Writer and reader are **not** distinguished by a stored `role` column — one writer, identified by `session.user.email === env.WRITER_EMAIL`, checked only at the route-guard layer (`src/routes/dashboard/+layout.server.ts`). Both are ordinary Better Auth users in the DB.
+- `better-auth`'s own `user`/`session`/`account`/`verification` tables generated via `@better-auth/cli generate` against a throwaway CLI-only config (not committed — deleted after use), then folded into `src/lib/server/db/schema.ts` alongside the existing `publication`/`post`/`subscriber` tables. `src/lib/server/id.ts`'s `IdPrefix` extended to `user`/`sess`/`acct`/`ver`; `CLAUDE.md`'s ID Scheme table gained the `acct_` row it was missing. Better Auth's `advanced.database.generateId` hook wired to the same shared `generateId()` helper so every table uses the same Stripe-style IDs.
+- `src/lib/server/auth.ts` — `createAuth(env, baseURL)` factory, instantiated per-request (D1 binding isn't available at module scope). Configures the Drizzle D1 adapter, the `magicLink` plugin, and a `databaseHooks.user.create.after` hook that inserts a `subscriber` row for any new user whose email isn't the writer's — the one shared point where reader accounts become subscribers.
+- `src/lib/server/mail.ts` — `sendMagicLinkEmail` wraps a direct Resend API call in try/catch; failures log a generic message only (never the token/URL/recipient) and don't change the caller's behavior, so a broken key can't be distinguished from a successful send by an outside observer.
+- `src/hooks.server.ts` (new) attaches `locals.session`/`locals.user` via `auth.api.getSession` on every request; `src/app.d.ts`'s `Locals` interface (previously commented out) now types them.
+- `src/routes/api/auth/[...betterauth]/+server.ts` — the catch-all handler, named to match the route `CLAUDE.md`'s Known Gotchas already anticipated since it was written.
+- Homepage subscribe (`src/routes/(public)/+page.server.ts`, `SubscribeForm.svelte`) posts to `/?/subscribe` explicitly, so the same action works whether the form is rendered on the homepage or the post-detail page without duplicating the action. Swaps to an inline "check your inbox" confirmation via `$state` on success — no new page, since no confirmation-page design exists.
+- **Test-only login helper**, using Better Auth's official `testUtils` plugin instead of hand-rolling signed-cookie forgery: `src/lib/server/auth-test.ts` (a second auth instance, kept separate per Better Auth's own docs — mixing `testUtils` into the production config breaks `ctx.test` type inference) + `src/routes/api/test/login/+server.ts` (gated by `ENABLE_TEST_AUTH !== 'true'` → 404; the route physically ships in the bundle since Workers has no separate test build, but is inert without that flag, which is never set in production) + `src/lib/test/auth.ts`'s `loginAsTestWriter(page)` Playwright helper. Named `auth-test.ts`, not `auth.test.ts` — the latter collided with Vitest's default `*.test.ts` glob and got picked up as an (empty) unit test file, failing `bun run test:unit`.
+- **Two real bugs found and fixed mid-session, not pre-planned:**
+  1. `<form>` can't nest inside `<p>` — the "resend the link" markup on `/login/check-email` needed restructuring (form promoted to wrap the whole line instead of sitting inside the paragraph).
+  2. Better Auth's password utility imports `node:crypto`, which the existing `nodejs_als` compatibility flag doesn't cover — added `nodejs_compat` to `wrangler.jsonc`, without which the Worker crashed at boot with "No such module 'node:crypto'" (only surfaced when actually starting `wrangler dev`, not at typecheck/build time).
+- **CI gap found and fixed:** neither `ci.yml` nor `deploy.yml`'s `build` job ever wrote a `.dev.vars` file from GitHub secrets — `RESEND_API_KEY`/`BETTER_AUTH_SECRET` have been "required" per `CLAUDE.md` since Session 2 but were never actually set as GH secrets, and nothing would have written them into the local Worker's env even if they were. Added a "Create .dev.vars for local testing" step (writes from `${{ secrets.* }}` via heredoc, never echoed) before the type-gen step in both workflows — must run before typegen since `wrangler types` reads var _names_ out of `.dev.vars`, not just `wrangler.jsonc`. Set `BETTER_AUTH_SECRET` (freshly generated), `RESEND_API_KEY` (user's real key), and `WRITER_EMAIL` as actual GH secrets for the first time.
+- Playwright doesn't resolve SvelteKit's `$lib` alias — the dashboard e2e specs' `loginAsTestWriter` import had to be relative (`../../lib/test/auth` etc.), not `$lib/test/auth`, discovered by the import failing at Playwright's webServer startup despite typechecking fine under `svelte-check` (which does resolve `$lib`).
+- Migration `0001_sad_starbolt.sql` (pure `CREATE TABLE`/`CREATE INDEX` for `user`/`session`/`account`/`verification`) generated, reviewed, applied to local D1. Remote apply happens automatically via the `deploy.yml` step fixed in Hotfix 1.
+
+### In Scope
+
+- Real writer login: magic link send (gated to `WRITER_EMAIL`), verify, session, `/dashboard/*` gating
+- Real reader subscribe: magic link send (unrestricted), verify, session, `subscriber` row creation
+- Better Auth schema (`user`/`session`/`account`/`verification`) folded into the existing Drizzle setup with stripe-style IDs
+- Test-only login helper for e2e (official Better Auth `testUtils` plugin, never shipped active in production)
+- CI secrets gap fixed (`.dev.vars` now actually gets written in CI from GH secrets)
+- `nodejs_compat` compatibility flag added (Better Auth requires it)
+
+### Out of Scope
+
+- **Resend Segment/contact membership for subscribers** — PRD §10 still has "single Topic vs multiple Topics per publication" as an open, undecided question, and building Segment-add logic now would mean guessing at that shape. The `subscriber` D1 row exists; nothing calls Resend's contact API yet. Needs its own session, after that product question is resolved.
+- No reader-facing "unsubscribe/preferences" page or dedicated post-subscribe confirmation page (still undesigned per Session 7's `DESIGN.md` notes) — used an inline state swap on the existing homepage instead.
+- No writer-identity-change UI — `WRITER_EMAIL` is fixed per instance, matching the single-writer v1 model.
+- Production secrets not yet set at the time this entry was written — see next steps below.
+
+### Breaking Changes
+
+- `/dashboard/*` now requires authentication. Anyone testing the dashboard manually needs a real magic-link login (production) or the test-only endpoint (local/CI only).
+- `wrangler.jsonc` gained the `nodejs_compat` compatibility flag — required for Better Auth to boot at all.
+
+### Notes for Future Sessions
+
+- **Resend Segment/Topic wiring is the natural next backend session** — resolve PRD §10's open Topic-cardinality question first, then add the contact-add call to the same `databaseHooks.user.create.after` hook (or a dedicated step right after it) in `src/lib/server/auth.ts`.
+- **`ENABLE_TEST_AUTH` must never be set in Cloudflare Worker secrets** — it's local/CI-only. If a future session touches production secrets, double check `wrangler secret list` doesn't include it.
+- Real magic-link delivery is not covered by any automated test (matches `CLAUDE.md`'s pre-authorized exception for Resend-dependent tests) — verified manually instead, see below.
+- The subscribe e2e test intentionally submits a fake email (`reader@example.com`); Resend's sandbox sender can only deliver to the account owner's own verified address, so the real send call fails and is silently swallowed by `mail.ts`'s try/catch — this is expected, not a bug, and is exactly the resilience behavior the try/catch was built for.
+
+---
+
 ## Hotfix 1 — Apply D1 migrations on deploy
 
 **Date & Time (IST):** 2026-07-23 13:05 IST

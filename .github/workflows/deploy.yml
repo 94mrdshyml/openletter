@@ -17,6 +17,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Create .dev.vars for local testing
+        run: |
+          cat > .dev.vars <<EOF
+          RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+          BETTER_AUTH_SECRET=${{ secrets.BETTER_AUTH_SECRET }}
+          WRITER_EMAIL=${{ secrets.WRITER_EMAIL }}
+          ENABLE_TEST_AUTH=true
+          EOF
+
       - name: Generate Cloudflare Worker types
         run: bun run gen
 
