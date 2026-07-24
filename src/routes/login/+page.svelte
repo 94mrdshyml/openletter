@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { publication } from '$lib/mock-data';
+	import { page } from '$app/state';
+
+	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 </script>
 
 <svelte:head>
-	<title>Sign in · {publication.name}</title>
+	<title>Sign in · {name}</title>
 </svelte:head>
 
 <div style="min-height:100vh;display:flex;flex-direction:column">

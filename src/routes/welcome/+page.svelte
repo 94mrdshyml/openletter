@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { publication } from '$lib/mock-data';
+	import { page } from '$app/state';
 	import SettingsIcon from '$lib/components/icons/SettingsIcon.svelte';
 	import PlusIcon from '$lib/components/icons/PlusIcon.svelte';
+
+	const name = $derived(page.data.publication?.name ?? 'Your publication');
+	const slug = $derived(page.data.publication?.slug ?? '');
 </script>
 
 <svelte:head>
-	<title>Your publication is live · {publication.name}</title>
+	<title>Your publication is live · {name}</title>
 </svelte:head>
 
 <div style="min-height:100vh;display:flex;flex-direction:column">
@@ -23,8 +26,8 @@
 		<p
 			style="font-size:17px;color:var(--color-neutral-600);margin:0 0 40px;line-height:1.6;max-width:480px"
 		>
-			{publication.name} is deployed and running on your Cloudflare account. No servers to manage, no
-			platform taking a cut — it's yours.
+			{name} is deployed and running on your Cloudflare account. No servers to manage, no platform taking
+			a cut — it's yours.
 		</p>
 		<div
 			style="border-top:2px solid var(--color-divider);padding:24px 0 0;display:flex;flex-direction:column;gap:12px;max-width:400px"
@@ -65,6 +68,6 @@
 		</div>
 	</div>
 	<div style="padding:20px 90px;font-size:12px;color:var(--color-neutral-400)">
-		{publication.slug} · Deployed on Cloudflare
+		{slug} · Deployed on Cloudflare
 	</div>
 </div>

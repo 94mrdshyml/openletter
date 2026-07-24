@@ -10,6 +10,7 @@ export const publication = sqliteTable('publication', {
 	slug: text('slug').notNull().unique(),
 	tagline: text('tagline'),
 	description: text('description'),
+	category: text('category'),
 	logoUrl: text('logo_url'),
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()

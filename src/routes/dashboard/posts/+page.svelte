@@ -1,15 +1,18 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { publication, posts, draftPosts } from '$lib/mock-data';
+	import { page } from '$app/state';
+	import { posts, draftPosts } from '$lib/mock-data';
 	import { formatPostDateShort } from '$lib/format';
 	import DraftIcon from '$lib/components/icons/DraftIcon.svelte';
 	import PublishedIcon from '$lib/components/icons/PublishedIcon.svelte';
 	import PlusIcon from '$lib/components/icons/PlusIcon.svelte';
 	import MoreIcon from '$lib/components/icons/MoreIcon.svelte';
+
+	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 </script>
 
 <svelte:head>
-	<title>Posts · {publication.name}</title>
+	<title>Posts · {name}</title>
 </svelte:head>
 
 <div style="padding:40px;max-width:860px">

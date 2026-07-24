@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { publication } from '$lib/mock-data';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-	<title>Accept invitation · {publication.name}</title>
+	<title>Accept invitation · {data.publication?.name ?? 'OpenLetter'}</title>
 </svelte:head>
 
 <div style="min-height:100vh;display:flex;flex-direction:column">

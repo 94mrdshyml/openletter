@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { publication } from '$lib/mock-data';
+	import { page } from '$app/state';
+
+	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 </script>
 
 <nav
@@ -10,7 +12,7 @@
 		href={resolve('/')}
 		style="font-family:var(--font-heading);font-weight:800;font-size:18px;margin-right:auto;color:var(--color-text);letter-spacing:-0.01em;text-decoration:none"
 	>
-		{publication.name}
+		{name}
 	</a>
 	<a
 		href={resolve('/')}

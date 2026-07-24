@@ -22,6 +22,13 @@
 			"when": 1784889122106,
 			"tag": "0002_majestic_edwin_jarvis",
 			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "6",
+			"when": 1784901473320,
+			"tag": "0003_black_infant_terrible",
+			"breakpoints": true
 		}
 	]
 }

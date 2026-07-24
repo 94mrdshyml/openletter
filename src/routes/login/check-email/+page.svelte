@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { publication } from '$lib/mock-data';
 
 	let email = $derived(page.url.searchParams.get('email') ?? '');
+	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 </script>
 
 <svelte:head>
-	<title>Check your inbox · {publication.name}</title>
+	<title>Check your inbox · {name}</title>
 </svelte:head>
 
 <div style="min-height:100vh;display:flex;flex-direction:column">

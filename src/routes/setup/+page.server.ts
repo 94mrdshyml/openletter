@@ -3,9 +3,10 @@ import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { createAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
-import { setupLock, user as userTable } from '$lib/server/db/schema';
+import { publication, setupLock, user as userTable } from '$lib/server/db/schema';
 import { generateId } from '$lib/server/id';
-import { uploadAvatar } from '$lib/server/media';
+import { uploadAvatar, uploadLogo } from '$lib/server/media';
+import { slugify } from '$lib/server/slug';
 
 export const load: PageServerLoad = async ({ platform }) => {
 	const db = getDb(platform!.env.DB);
@@ -33,10 +34,28 @@ export const actions: Actions = {
 		const lastName = String(data.get('lastName') ?? '');
 		const picture = data.get('picture');
 
+		const pubName = String(data.get('pubName') ?? '');
+		const pubTagline = String(data.get('pubTagline') ?? '') || null;
+		const pubCategory = String(data.get('pubCategory') ?? '') || null;
+		const pubLogo = data.get('pubLogo');
+
 		let image: string | null = null;
 		if (picture instanceof File && picture.size > 0) {
 			image = await uploadAvatar(env, picture);
 		}
+
+		let logoUrl: string | null = null;
+		if (pubLogo instanceof File && pubLogo.size > 0) {
+			logoUrl = await uploadLogo(env, pubLogo);
+		}
+
+		await db.insert(publication).values({
+			name: pubName,
+			slug: slugify(pubName),
+			tagline: pubTagline,
+			category: pubCategory,
+			logoUrl
+		});
 
 		const existing = await db.query.user.findFirst({ where: eq(userTable.email, email) });
 		if (existing) {

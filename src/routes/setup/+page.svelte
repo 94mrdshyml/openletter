@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { publication } from '$lib/mock-data';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
 </script>
 
 <svelte:head>
-	<title>Set up your publication · {publication.name}</title>
+	<title>Set up your publication</title>
 </svelte:head>
 
 <div style="min-height:100vh;display:flex;flex-direction:column">
@@ -72,6 +71,48 @@
 					<label for="picture">Profile picture (optional)</label>
 					<input class="input" id="picture" name="picture" type="file" accept="image/*" />
 				</div>
+
+				<div style="border-top:2px solid var(--color-divider);padding-top:16px;margin-top:8px">
+					<h3 style="font-size:16px;margin:0 0 16px">Your publication</h3>
+				</div>
+				<div class="field">
+					<label for="pubName">Publication name</label>
+					<input
+						class="input"
+						id="pubName"
+						name="pubName"
+						type="text"
+						placeholder="The Weekly Dispatch"
+						style="font-size:15px;padding:10px 14px;min-height:42px"
+						required
+					/>
+				</div>
+				<div class="field">
+					<label for="pubTagline">Tagline (optional)</label>
+					<input
+						class="input"
+						id="pubTagline"
+						name="pubTagline"
+						type="text"
+						style="font-size:15px;padding:10px 14px;min-height:42px"
+					/>
+				</div>
+				<div class="field">
+					<label for="pubCategory">Category (optional)</label>
+					<input
+						class="input"
+						id="pubCategory"
+						name="pubCategory"
+						type="text"
+						placeholder="Politics, Tech, Fiction…"
+						style="font-size:15px;padding:10px 14px;min-height:42px"
+					/>
+				</div>
+				<div class="field">
+					<label for="pubLogo">Publication logo (optional)</label>
+					<input class="input" id="pubLogo" name="pubLogo" type="file" accept="image/*" />
+				</div>
+
 				<button
 					type="submit"
 					class="btn btn-primary btn-block"
