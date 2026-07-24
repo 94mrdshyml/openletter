@@ -2,6 +2,29 @@
 
 ---
 
+## Hotfix 4 — Backfill prod publication's Resend Segment/Topic ids
+
+**Date & Time (IST):** 2026-07-24 22:45 IST
+**Status:** Completed
+**Branch:** fix/backfill-prod-publication-resend-ids
+
+### What happened
+
+Session 12 (below) shipped `/setup` provisioning a Resend Segment + Topic per publication, storing the ids on the new `publication.resendSegmentId`/`resendTopicId` columns. After that session's deploy, the live instance's single `publication` row (created back in Session 11, before this code existed) still had both columns `NULL` — the migration only adds the columns, it doesn't populate them for rows that already exist. Left as-is, the reader-subscribe → Resend sync would have silently no-op'd forever on the actual production site (by design — `syncSubscriberContact` skips when either id is missing — but silent is not the same as correct here).
+
+### Fix
+
+Ran a one-off `wrangler d1 execute --remote UPDATE` against the single existing `publication` row (single-instance model — never more than one), setting both ids directly. Not a script or migration, since this is a one-time gap for the one publication that predates Session 12's code, not a repeatable pattern.
+
+**Discovered a real constraint while doing this:** the connected Resend account's plan caps Segments at 3, account-wide (not per-project) — `POST /segments` returned `400 "Your plan includes 3 segments. Upgrade to add more."` Two of the three were already unrelated pre-existing segments from other projects on the same account; the third had just been consumed by Session 12's own CI e2e run, which completes a real `/setup` against the live Resend API. Reused that CI-created "Subscribers" segment's id for prod (it's functionally identical — same name, created by this same codebase's `/setup` flow moments earlier) rather than fighting the cap, and created a fresh Topic (uncapped) for the real id.
+
+### Notes for Future Sessions
+
+- **Every future CI/local e2e run that completes `/setup` will hit this same Segment cap.** `createSegment` will fail, get swallowed by `resend.ts`'s fail-open try/catch (by design — a Resend outage must never block setup), and `resendSegmentId` will stay `null` for that run. Tests won't fail on this (nothing asserts on the id), but expect a "Failed to create Resend segment" log line in e2e output going forward — that's the plan cap, not a regression, unless the user upgrades the Resend plan or deletes unused segments in the dashboard.
+- If a future session provisions a genuinely new self-hosted instance (a different Cloudflare account/Resend account than this one), this constraint doesn't apply — it's specific to this shared account already being near its segment limit from other projects.
+
+---
+
 ## Session 12 — Resend Segment/Topic subscriber sync
 
 **Date & Time (IST):** 2026-07-24 22:35 IST
@@ -45,6 +68,7 @@ Closes the gap flagged since Session 9's "Out of Scope": the `subscriber` D1 row
 - **Existing subscribers (pre-Session-12) are not backfilled.** If a bulk Resend sync is ever wanted for the handful of readers who subscribed before this session, it's a one-off script over `subscriber` rows where `resendContactId IS NULL`, not something this session built proactively.
 - **Segment/Topic names are fixed strings** ("Subscribers", "Newsletter"), not derived from the publication name — deliberate, so a publication rename (`dashboard/settings`) never needs to sync a Resend rename too. If that mismatch ever becomes a real user complaint, it's a `dashboard/settings`-side follow-up, not something to silently add here.
 - **Publish → email and the Topic preference/unsubscribe page are the two PRD §6 items this session does not touch** — both need the Segment/Topic ids now sitting on `publication`, so this session is the unblocking prerequisite for either.
+- See Hotfix 4 below: prod's pre-existing `publication` row needed a manual one-time backfill after this session's deploy, and a real Resend account plan constraint (3-segment cap) was discovered in the process.
 
 ---
 
