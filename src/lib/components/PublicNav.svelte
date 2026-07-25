@@ -32,6 +32,14 @@
 			>
 				My profile
 			</a>
+			<form method="POST" action="/logout" style="display:contents">
+				<button
+					type="submit"
+					style="background:none;border:none;padding:0;font:inherit;cursor:pointer;font-size:14px;color:var(--color-text);font-family:var(--font-body)"
+				>
+					Log out
+				</button>
+			</form>
 		{:else}
 			<a
 				href={resolve('/login')}

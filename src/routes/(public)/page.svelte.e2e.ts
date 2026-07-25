@@ -46,3 +46,20 @@ test('shows Dashboard and My profile for an admin', async ({ page }) => {
 	await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'My profile' })).toBeVisible();
 });
+
+test('shows a Log out button for a signed-in reader, absent when logged out', async ({ page }) => {
+	await page.goto('/');
+	await expect(page.getByRole('button', { name: 'Log out' })).toHaveCount(0);
+
+	await loginAsTestReader(page, 'nav-logout-reader@example.com');
+	await page.goto('/');
+	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
+});
+
+test('logs out from the homepage nav', async ({ page }) => {
+	await loginAsTestReader(page, 'nav-logout-reader-2@example.com');
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Log out' }).click();
+	await expect(page).toHaveURL(/\/$/);
+	await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible();
+});
