@@ -116,8 +116,8 @@
 				<div style="border-top:2px solid var(--color-divider);padding-top:16px;margin-top:8px">
 					<h3 style="font-size:16px;margin:0 0 4px">Email delivery</h3>
 					<p style="font-size:13px;color:var(--color-neutral-500);margin:0 0 16px;line-height:1.5">
-						Required to send sign-in links and the newsletter. Create a Resend account and
-						verified domain first, then paste your API key below.
+						Required to send sign-in links and the newsletter. Create a Resend account and verified
+						domain first, then paste your API key below.
 					</p>
 				</div>
 				<div class="field">
