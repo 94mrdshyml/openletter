@@ -156,20 +156,33 @@
 						/>
 					</div>
 				</div>
-				<div class="field">
-					<label for="resendSegmentId">Resend Segment ID (optional)</label>
-					<input
-						class="input"
-						id="resendSegmentId"
-						name="resendSegmentId"
-						type="text"
-						placeholder="Create a Segment in Resend, paste its id here"
-						style="font-size:15px;padding:10px 14px;min-height:42px"
-					/>
-					<p style="font-size:12px;color:var(--color-neutral-400);margin:6px 0 0">
-						Needed to sync subscribers to Resend. Can be added later in Settings.
-					</p>
+				<div style="display:flex;gap:16px">
+					<div class="field" style="flex:1">
+						<label for="resendSegmentId">Resend Segment ID (optional)</label>
+						<input
+							class="input"
+							id="resendSegmentId"
+							name="resendSegmentId"
+							type="text"
+							placeholder="Create a Segment in Resend, paste its id here"
+							style="font-size:15px;padding:10px 14px;min-height:42px"
+						/>
+					</div>
+					<div class="field" style="flex:1">
+						<label for="resendTopicId">Resend Topic ID (optional)</label>
+						<input
+							class="input"
+							id="resendTopicId"
+							name="resendTopicId"
+							type="text"
+							placeholder="Create a Topic in Resend, paste its id here"
+							style="font-size:15px;padding:10px 14px;min-height:42px"
+						/>
+					</div>
 				</div>
+				<p style="font-size:12px;color:var(--color-neutral-400);margin:-8px 0 0">
+					Both needed to sync subscribers to Resend. Can be added later in Settings.
+				</p>
 
 				<button
 					type="submit"

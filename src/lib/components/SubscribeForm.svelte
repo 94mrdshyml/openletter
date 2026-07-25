@@ -1,11 +1,17 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 
 	let { maxWidth = '440px', email = '' }: { maxWidth?: string; email?: string } = $props();
 	let subscribed = $state(false);
+	let alreadySubscribed = $state(false);
 </script>
 
-{#if subscribed}
+{#if alreadySubscribed}
+	<p style="max-width:{maxWidth};font-size:15px;color:var(--color-neutral-600)">
+		You're already subscribed — thanks for reading! <a href={resolve('/')}>Read the latest →</a>
+	</p>
+{:else if subscribed}
 	<p style="max-width:{maxWidth};font-size:15px;color:var(--color-neutral-600)">
 		Check your inbox to confirm your subscription.
 	</p>
@@ -17,7 +23,12 @@
 		data-testid="subscribe-form"
 		use:enhance={() => {
 			return async ({ result }) => {
-				if (result.type === 'success') subscribed = true;
+				if (result.type !== 'success') return;
+				if (result.data?.alreadySubscribed) {
+					alreadySubscribed = true;
+				} else {
+					subscribed = true;
+				}
 			};
 		}}
 	>

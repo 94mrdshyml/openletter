@@ -5,7 +5,6 @@ import { invitation, publication } from '$lib/server/db/schema';
 import { sendInvitationEmail } from '$lib/server/mail';
 import { uploadLogo } from '$lib/server/media';
 import { slugify } from '$lib/server/slug';
-import { createTopic } from '$lib/server/resend';
 
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -37,6 +36,7 @@ export const actions: Actions = {
 		const resendFromName = String(data.get('resendFromName') ?? '') || null;
 		const resendFromEmail = String(data.get('resendFromEmail') ?? '') || null;
 		const resendSegmentId = String(data.get('resendSegmentId') ?? '') || null;
+		const resendTopicId = String(data.get('resendTopicId') ?? '') || null;
 
 		const pub = await db.query.publication.findFirst();
 		if (!pub) return { saved: false };
@@ -45,16 +45,6 @@ export const actions: Actions = {
 		if (logo instanceof File && logo.size > 0) {
 			logoUrl = await uploadLogo(env, logo);
 		}
-
-		// A Topic belongs to whichever Resend account issued it, so an old
-		// topic id is dead the moment the API key changes to a different
-		// account (this is exactly what happened moving off the old shared
-		// account — see Hotfix 6). Recreate it whenever a new key is
-		// actually submitted; Topics aren't capped like Segments, so this is
-		// cheap and safe. Leave the existing topic id alone otherwise.
-		const resendTopicId = resendApiKey
-			? await createTopic(resendApiKey, 'Newsletter')
-			: pub.resendTopicId;
 
 		await db
 			.update(publication)

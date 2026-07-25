@@ -2,7 +2,7 @@
 
 ---
 
-## Hotfix 9 — Revert /welcome to full-viewport hero; fix dashboard nav wrapping
+## Hotfix 10 — Revert /welcome to full-viewport hero; fix dashboard nav wrapping
 
 **Date & Time (IST):** 2026-07-25 22:15 IST
 **Status:** Completed
@@ -32,6 +32,48 @@ Same worktree-isolation approach as prior hotfixes (another agent had an in-prog
 - **Three container classes now exist:** `.container` (860px, public pages + editor's writing column + settings' form), `.container-narrow` (680px, post-page reading content only), `.container-wide` (1120px, dashboard chrome and content generally). Pick based on what the content actually is — reading text, general page content, or a nav/toolbar row with many items — not by copying whichever one is nearby.
 - **The subscribe-confirmation e2e flake is still unresolved** (see Hotfix 8's notes) — not touched again this session, still worth a dedicated investigation.
 - If a future session adds more items to `AdminNav` (another tab, another action), re-check nav width at 1280px specifically — that's the narrowest realistic desktop width this was verified against, and the floor before `overflow-x:auto` kicks in.
+
+---
+
+## Hotfix 9 — Topic ID becomes a manual field; distinct subscribe-confirmation email; already-subscribed check
+
+**Date & Time (IST):** 2026-07-25 21:45 IST
+**Status:** Completed
+**Branch:** fix/manual-topic-id-and-subscribe-flow
+
+### What happened
+
+User tried subscribing a real reader right after Hotfix 7 shipped and hit a real Resend 422 ("One or more topics do not exist") — the Topic id on the row was still the stale one from the old shared account, because Hotfix 7's auto-recreate logic only fires when the API key field is actually resubmitted, and the admin had no reason to retype an already-saved password-masked field. Underlying problem: Hotfix 7 tried to paper over Hotfix 6's asymmetry (Segment manual, Topic auto-created) with fragile "recreate on key change" logic instead of just making Topic manual too, which is what the user actually expected ("where is the option to add topic id?").
+
+Separately, user asked for two real UX/product changes to the subscribe flow: (1) the email a new subscriber receives said "Your sign-in link," identical to the admin dashboard login email — should read as a subscription confirmation instead; (2) resubscribing with an already-subscribed email should show a distinct "you're already subscribed" message with a link to read, not silently resend a login-flavored email. Explicitly confirmed: the underlying mechanism (Better Auth creates a `user` row on magic-link verification, `databaseHooks.user.create.after` inserts the `subscriber` row and syncs to Resend) stays exactly as-is — this is copy/UX only, not an auth redesign.
+
+### Fix
+
+- **Topic ID is now a plain manual field**, exactly mirroring Segment ID, in both `/setup` and `dashboard/settings`. `resend.ts`'s `createTopic` is deleted along with Hotfix 7's recreate-on-key-change logic — a Segment and a Topic both belong to whichever Resend account issued them, and the app has no reliable way to detect when a stored key has moved to a different account, so it no longer tries to manage either resource's lifecycle. The writer creates both directly in the Resend dashboard and pastes the ids, same treatment either way.
+- **`mail.ts`'s `sendMagicLinkEmail` now sends different copy depending on why the link was requested.** Every magic-link flow (admin dashboard login, admin bootstrap in `/setup`, reader subscribe) shares one `sendMagicLink` callback in Better Auth's config — confirmed via Better Auth's own source (`magic-link/index.mjs`) that `callbackURL` is always embedded in the link URL it hands to that callback, so it doubles as a reliable signal: `callbackURL === '/dashboard'` is always an admin flow → "Your sign-in link"; anything else is a reader subscribing → "Confirm your subscription" copy. No new plumbing, no new params — reused a signal that was already there.
+- **`(public)/+page.server.ts`'s `subscribe` action now checks the `subscriber` table before sending anything.** An existing row means the reader is already fully subscribed (confirmed + synced to Resend) — returns `{ alreadySubscribed: true }` instead of sending another magic link. A subscribe request that was never clicked/verified (no `subscriber` row yet, since that's only inserted in the `user.create.after` hook) still correctly re-sends a fresh link — matches the actual semantics of "subscribed."
+- **`SubscribeForm.svelte`** (shared by `/` and `/welcome`) gained a third inline state alongside the existing "check your inbox" swap: "You're already subscribed — thanks for reading!" with a link back to the homepage. Same established inline-swap pattern as the existing confirmation state, no new route.
+
+### In Scope
+
+- Topic ID manual field, symmetric with Segment ID, in `/setup` and `dashboard/settings`
+- Distinct subscribe-confirmation vs. sign-in email copy, keyed off `callbackURL`
+- Already-subscribed check + UI state on the subscribe form
+- No changes to the underlying `user`/`subscriber` row creation mechanism — explicitly confirmed out of scope by the user
+
+### Out of Scope
+
+- Any redesign of how/when the `subscriber` row or Resend contact sync happens — unchanged from Hotfix 6
+- A dedicated welcome/newsletter email template beyond the one-line copy change — no design exists for one, not asked for
+
+### Breaking Changes
+
+NONE — additive; the two prior hotfixes' Topic-management approaches (auto-create, then auto-recreate-on-key-change) are both fully superseded by the manual field, no schema change.
+
+### Notes for Future Sessions
+
+- **Prod still has no working Topic id** — the admin needs to create a Topic in the new dedicated Resend account's dashboard and paste its id into `dashboard/settings`, same as they already did for Segment id. Nothing automatic left to rely on.
+- The `callbackURL`-as-signal trick in `mail.ts` is a little implicit — if a future session adds a third magic-link flow with its own copy needs, extend the `if`/`else` there deliberately rather than assuming the binary split still covers every case.
 
 ---
 
