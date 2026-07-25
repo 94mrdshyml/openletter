@@ -2,7 +2,7 @@
 
 ---
 
-## Hotfix 6 — Desktop containers (centered max-width) + welcome page rewritten to match site
+## Hotfix 8 — Desktop containers (centered max-width) + welcome page rewritten to match site
 
 **Date & Time (IST):** 2026-07-25 15:50 IST
 **Status:** Completed
@@ -27,14 +27,92 @@ Same worktree-isolation approach as Hotfix 5 (another agent had uncommitted work
 
 **One e2e failure, confirmed pre-existing and unrelated:** `(public)/page.svelte.e2e.ts` → "shows an inline confirmation after subscribing" failed intermittently (roughly 1-in-5 locally). Before assuming it was mine, `git stash`ed this session's entire diff and re-ran the same test 5× against unmodified `main` — identical ~1-in-5 failure rate, same error (`/?/subscribe` hard-navigates instead of `use:enhance` intercepting it). This session touched zero files in `SubscribeForm.svelte` or the subscribe action. Not fixed here — root-causing a client-hydration race is its own investigation, out of scope for a container/CSS hotfix.
 
-**Local-only gotcha, not a code issue:** `bun run check` initially failed with `Property 'RESEND_API_KEY' does not exist on type 'Env'` — the main repo's own local `.dev.vars` (and the tracked `.dev.vars.example` template) are missing `RESEND_API_KEY` despite it being required since Session 9/12, so `wrangler types` never generates it into the `Env` type. Added a placeholder value to this worktree's gitignored `.dev.vars` only (not `.dev.vars.example`) to unblock local verification — a real gap in the tracked template, flagged below, not fixed here (out of scope).
+**Local-only gotcha, not a code issue (superseded during merge, see below):** `bun run check` initially failed with `Property 'RESEND_API_KEY' does not exist on type 'Env'` — at the time this branch was cut, the main repo's own local `.dev.vars` (and the tracked `.dev.vars.example` template) were missing `RESEND_API_KEY` despite it being required since Session 9/12, so `wrangler types` never generated it into the `Env` type. Added a placeholder value to this worktree's gitignored `.dev.vars` only to unblock local verification. **Moot as of merging this branch with `main`:** Hotfix 6 (below) retires `RESEND_API_KEY` as an env var entirely, moving Resend config into D1 — the gap this note originally flagged no longer exists in the merged code.
 
 ### Notes for Future Sessions
 
-- **`.dev.vars.example` is missing `RESEND_API_KEY`.** It's been a required secret since Session 9 (`mail.ts`) and Session 12/14 (`resend.ts`), but the tracked template never got the line added, and apparently neither did this machine's real local `.dev.vars`. Whoever touches auth/Resend code next should add `RESEND_API_KEY=` to `.dev.vars.example` — small fix, just never landed.
 - **The subscribe-confirmation e2e flake is real and reproducible on `main` independent of this change** (~1-in-5 locally). `playwright.config.ts` still has no `retries` configured — this was flagged as far back as Session 8 for a different flaky test and never addressed. Worth adding `retries: 1` for CI generally, and separately worth root-causing why `use:enhance` sometimes loses the race to the browser's default form submission on this specific form.
-- **Settings page now has a `.container` (860px) outer wrapper with the form itself nested at its original 520px** — if a future session wants the form fields themselves wider, that's a separate, deliberate design call, not an oversight.
+- **Settings page now has a `.container` (860px) outer wrapper with the form itself nested at its original 520px** — if a future session wants the form fields themselves wider, that's a separate, deliberate design call, not an oversight. This now also wraps Hotfix 6's new "Email delivery" fields (Resend API key/from name/from email/Segment ID), merged in at the same 520px width.
 - Two new CSS utility classes (`.container`, `.container-narrow`) are now the standard way to center page content — any new public or dashboard route should use one of these rather than a fresh ad hoc `max-width` value.
+
+---
+
+## Hotfix 7 — Recreate the Resend Topic when the API key changes
+
+**Date & Time (IST):** 2026-07-25 21:15 IST
+**Status:** Completed
+**Branch:** fix/settings-recreates-topic-on-key-change
+
+### What happened
+
+User-reported immediately after Hotfix 6 deployed: filled in the new dedicated Resend account's API key and Segment id via `dashboard/settings`, but there was no Topic id field to fill in, and the stale one already on the row (Hotfix 4's backfill, pointing at the old shared account) would never get replaced. Hotfix 6's design only auto-creates a Topic inside `/setup`'s one-time action — that only helps a brand-new instance. Prod had already run `/setup` years (well, hours) before this redesign existed, so there was no code path left that could ever create a Topic on the _new_ account for an _already-set-up_ instance. A Topic belongs to whichever Resend account issued it, so the leftover id would silently fail the moment a contact sync tried to use it against the new key.
+
+### Fix
+
+`dashboard/settings`'s `save` action now recreates the Topic (`createTopic`, same helper `/setup` uses) whenever a new API key is actually submitted — Topics aren't capped by Resend's plan the way Segments are, so recreating on every key change is cheap and doesn't reintroduce the collision problem Hotfix 6 was fixing. If no new key is submitted, the existing `resendTopicId` is left untouched. No new form field needed — this is deliberately invisible to the writer, matching the same "Topic just works" pattern `/setup` already established.
+
+### In Scope
+
+- `dashboard/settings/+page.server.ts`'s `save` action recreates the Topic on API key change
+
+### Out of Scope
+
+- No UI feedback distinguishing "topic recreated" from "topic unchanged" — the existing generic "Saved." message covers both, matching how every other field on this form already behaves
+
+### Breaking Changes
+
+NONE — additive fix to Hotfix 6's own gap, no schema change.
+
+### Notes for Future Sessions
+
+- This closes the loop Hotfix 6 left open for already-set-up instances migrating Resend accounts. A brand-new instance still gets its Topic created once in `/setup`; an existing instance gets a fresh one the moment it saves a new key in Settings. Either way, the writer never manually handles a Topic id.
+
+---
+
+## Hotfix 6 — Resend config moves from auto-created/env-var to writer-supplied in D1
+
+**Date & Time (IST):** 2026-07-25 18:40 IST
+**Status:** Completed
+**Branch:** fix/resend-config-in-setup
+
+### What happened
+
+Session 12 shipped subscriber→Resend sync with auto-created Segment+Topic in `/setup`, using `RESEND_API_KEY` as a Cloudflare secret. Live testing the same day (subscribing a real test contact, then cross-checking against Resend's own API) surfaced a real problem: the production Resend account is shared across multiple unrelated projects, and Resend's Segment count is capped by plan account-wide, not scoped per-app. Auto-creating a Segment on every `/setup` run collided with that cap; Topics have no such cap, so every CI run and manual test instead left behind a stray duplicate "Newsletter" topic — 8 of them by the time this was caught. Separately, the user decided to move to a fresh, OpenLetter-dedicated Resend account/domain rather than keep sharing the polluted one, and to stop treating the Resend API key as a Cloudflare secret at all — it and the rest of the Resend config are now writer-supplied through the app's own UI, stored in D1.
+
+### Fix
+
+- `publication` gains `resend_api_key`, `resend_from_name`, `resend_from_email` (existing `resend_segment_id`/`resend_topic_id` from Session 12 reused). Migration `0005_gray_ulik.sql`, pure `ALTER TABLE ADD COLUMN`.
+- `/setup`'s form and action gain an "Email delivery" section: Resend API key and From email (required — without them the founding admin's own bootstrap magic-link email can't send), From name and Segment ID (optional). These are inserted into the `publication` row in the same request, before `signInMagicLink` is called — this ordering is what makes the founding admin's own first login email deliverable at all, solving the chicken-and-egg problem a pure env-var/Cloudflare-secret model can't: on a fresh instance there's no user-editable config surface to fill in _before_ `/setup` runs.
+- The Topic ("Newsletter") is still auto-created once, in `/setup`, using the just-submitted key — no cap risk there, unlike Segments. The Segment is now a plain manual field; the writer creates it themselves in the Resend dashboard and pastes the id.
+- `dashboard/settings` gains the same four fields for editing after bootstrap. The API key never round-trips to the client: `load` destructures `resendApiKey` out of the row before returning (`hasResendApiKey: boolean` instead), and the `save` action only overwrites the stored key if a new one was actually submitted — a blank submission means "unchanged," since the field is never pre-filled with the real value in the first place.
+- **Real leak caught and fixed proactively, not asked for:** the root `+layout.server.ts` returns `publication` to every route's client-side hydration payload, including public unauthenticated ones. Once `resendApiKey` became a column, that load would have shipped it to any visitor's browser. Fixed by switching to Drizzle's explicit `columns` selection (display fields only) instead of `findFirst()`'s implicit select-all.
+- `src/lib/server/mail.ts` and `resend.ts` no longer take `env.RESEND_API_KEY` — `mail.ts` looks up the publication row itself; `resend.ts`'s `createTopic`/`syncSubscriberContact` take the key as a plain parameter, supplied by the caller (`/setup`'s action, `auth.ts`'s subscriber hook).
+- `RESEND_API_KEY` fully retired as an env var: removed from `.dev.vars`, `.dev.vars.example`, both CI workflows' `.dev.vars`-from-secrets steps, and the GH Actions secret (`gh secret delete`). `CLAUDE.md`'s Security Rules section updated — the "two required secrets" language was wrong the moment this shipped; now only `BETTER_AUTH_SECRET` is a Cloudflare secret, with the Resend-in-D1 exception called out explicitly.
+- `e2e-global-setup.ts` submits placeholder `resendApiKey`/`resendFromEmail` values, same convention as its other fake test data (`reader@example.com`, etc.) — the topic-creation call fails open against a fake key, exactly the resilience path it's meant to exercise.
+- An earlier version of this session had gone the opposite direction first — writer-provisioned Segment/Topic ids via env vars, no D1 storage, no UI — shipped, verified, then explicitly reversed by the user mid-session in favor of this D1-backed, `/setup`-driven design. That intermediate branch was discarded, not merged.
+
+### In Scope
+
+- Resend API key, from name/email, Segment id: writer-supplied via `/setup`, editable in `dashboard/settings`, stored in `publication`
+- Topic still auto-created once (no cap risk); Segment auto-creation removed entirely
+- `RESEND_API_KEY` env var/Cloudflare-secret fully retired
+- Root layout's public data leak (API key) fixed proactively
+
+### Out of Scope
+
+- Prod's existing `publication` row (from the old shared account) — `resend_segment_id`/`resend_topic_id` still point at the old account's stray resources. Not backfilled here; the admin fills in the new dedicated account's values via `dashboard/settings` after this deploys (`/setup` itself is already one-time-locked on prod, so this is the only path left).
+- Cleaning up the 8 stray duplicate "Newsletter" topics left in the old shared Resend account — user declined cleanup earlier this session, deferred to manual dashboard cleanup on their own schedule.
+- Publish → email (newsletter send via `/broadcasts`) — still not built; this hotfix only covers subscriber→contact sync, not sending.
+
+### Breaking Changes
+
+- **Magic-link email (login, invites) silently stops working on any instance until an admin fills in Resend config via `dashboard/settings` or (on a fresh instance) `/setup`.** On prod specifically: the existing publication row has null `resend_api_key`/`resend_from_email` after this migration applies, so `mail.ts` will fail-open (silently skip sending, per its existing try/catch convention) until the admin manually saves the new dedicated account's key. The admin needs an already-valid session (or another access path) to reach `dashboard/settings` in that window — flagging this explicitly since it's a real operational gap, not swept under the fail-open behavior.
+- `RESEND_API_KEY` is no longer read from env anywhere. Any external tooling relying on that Cloudflare secret existing needs to be updated; the secret itself was left in place on the Worker (harmless, unused) rather than force-removed, same precedent as `WRITER_EMAIL`'s retirement in Session 10.
+
+### Notes for Future Sessions
+
+- **Immediately after this deploys, log into the live prod dashboard and fill in the new dedicated Resend account's API key + from name/email + Segment id via Settings** — otherwise no email sends at all (login links included) until that's done.
+- Publish → email (`POST /broadcasts` with `segment_id`/`topic_id`) is the natural next Resend-related session — the account/domain/config plumbing this hotfix built is what that session will consume.
 
 ---
 

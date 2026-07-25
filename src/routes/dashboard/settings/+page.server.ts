@@ -5,13 +5,20 @@ import { invitation, publication } from '$lib/server/db/schema';
 import { sendInvitationEmail } from '$lib/server/mail';
 import { uploadLogo } from '$lib/server/media';
 import { slugify } from '$lib/server/slug';
+import { createTopic } from '$lib/server/resend';
 
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const load: PageServerLoad = async ({ platform }) => {
 	const db = getDb(platform!.env.DB);
 	const pub = await db.query.publication.findFirst();
-	return { publication: pub };
+	if (!pub) return { publication: pub };
+
+	// resendApiKey is deliberately excluded — this data flows to the client
+	// for hydration, and the settings form never needs to display the raw
+	// key back (see +page.svelte's "leave blank to keep current" pattern).
+	const { resendApiKey, ...publicationSafe } = pub;
+	return { publication: { ...publicationSafe, hasResendApiKey: !!resendApiKey } };
 };
 
 export const actions: Actions = {
@@ -26,6 +33,11 @@ export const actions: Actions = {
 		const category = String(data.get('category') ?? '') || null;
 		const logo = data.get('logo');
 
+		const resendApiKey = String(data.get('resendApiKey') ?? '') || null;
+		const resendFromName = String(data.get('resendFromName') ?? '') || null;
+		const resendFromEmail = String(data.get('resendFromEmail') ?? '') || null;
+		const resendSegmentId = String(data.get('resendSegmentId') ?? '') || null;
+
 		const pub = await db.query.publication.findFirst();
 		if (!pub) return { saved: false };
 
@@ -34,9 +46,36 @@ export const actions: Actions = {
 			logoUrl = await uploadLogo(env, logo);
 		}
 
+		// A Topic belongs to whichever Resend account issued it, so an old
+		// topic id is dead the moment the API key changes to a different
+		// account (this is exactly what happened moving off the old shared
+		// account — see Hotfix 6). Recreate it whenever a new key is
+		// actually submitted; Topics aren't capped like Segments, so this is
+		// cheap and safe. Leave the existing topic id alone otherwise.
+		const resendTopicId = resendApiKey
+			? await createTopic(resendApiKey, 'Newsletter')
+			: pub.resendTopicId;
+
 		await db
 			.update(publication)
-			.set({ name, slug: slugify(name), tagline, description, category, logoUrl })
+			.set({
+				name,
+				slug: slugify(name),
+				tagline,
+				description,
+				category,
+				logoUrl,
+				// The API key field never round-trips to the client (see load),
+				// so a blank submission means "unchanged," not "clear it" — the
+				// other Resend fields DO round-trip pre-filled, so a blank
+				// submission there is a deliberate clear, same as any other
+				// field on this form.
+				...(resendApiKey ? { resendApiKey } : {}),
+				resendFromName,
+				resendFromEmail,
+				resendSegmentId,
+				resendTopicId
+			})
 			.where(eq(publication.id, pub.id));
 
 		return { saved: true };

@@ -113,6 +113,64 @@
 					<input class="input" id="pubLogo" name="pubLogo" type="file" accept="image/*" />
 				</div>
 
+				<div style="border-top:2px solid var(--color-divider);padding-top:16px;margin-top:8px">
+					<h3 style="font-size:16px;margin:0 0 4px">Email delivery</h3>
+					<p style="font-size:13px;color:var(--color-neutral-500);margin:0 0 16px;line-height:1.5">
+						Required to send sign-in links and the newsletter. Create a Resend account and verified
+						domain first, then paste your API key below.
+					</p>
+				</div>
+				<div class="field">
+					<label for="resendApiKey">Resend API key</label>
+					<input
+						class="input"
+						id="resendApiKey"
+						name="resendApiKey"
+						type="password"
+						style="font-size:15px;padding:10px 14px;min-height:42px"
+						required
+					/>
+				</div>
+				<div style="display:flex;gap:16px">
+					<div class="field" style="flex:1">
+						<label for="resendFromName">From name (optional)</label>
+						<input
+							class="input"
+							id="resendFromName"
+							name="resendFromName"
+							type="text"
+							placeholder="Defaults to your publication name"
+							style="font-size:15px;padding:10px 14px;min-height:42px"
+						/>
+					</div>
+					<div class="field" style="flex:1">
+						<label for="resendFromEmail">From email</label>
+						<input
+							class="input"
+							id="resendFromEmail"
+							name="resendFromEmail"
+							type="email"
+							placeholder="editor@yourdomain.com"
+							style="font-size:15px;padding:10px 14px;min-height:42px"
+							required
+						/>
+					</div>
+				</div>
+				<div class="field">
+					<label for="resendSegmentId">Resend Segment ID (optional)</label>
+					<input
+						class="input"
+						id="resendSegmentId"
+						name="resendSegmentId"
+						type="text"
+						placeholder="Create a Segment in Resend, paste its id here"
+						style="font-size:15px;padding:10px 14px;min-height:42px"
+					/>
+					<p style="font-size:12px;color:var(--color-neutral-400);margin:6px 0 0">
+						Needed to sync subscribers to Resend. Can be added later in Settings.
+					</p>
+				</div>
+
 				<button
 					type="submit"
 					class="btn btn-primary btn-block"
