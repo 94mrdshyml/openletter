@@ -1,15 +1,19 @@
+import { getDb } from './db';
+
 async function sendEmail(env: Env, to: string, subject: string, html: string) {
-	if (!env.RESEND_API_KEY) return;
+	const db = getDb(env.DB);
+	const pub = await db.query.publication.findFirst();
+	if (!pub?.resendApiKey || !pub?.resendFromEmail) return;
 
 	try {
 		const res = await fetch('https://api.resend.com/emails', {
 			method: 'POST',
 			headers: {
-				Authorization: `Bearer ${env.RESEND_API_KEY}`,
+				Authorization: `Bearer ${pub.resendApiKey}`,
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				from: 'Open Letter <editor@finsave.mrdshyml.xyz>',
+				from: `${pub.resendFromName || pub.name} <${pub.resendFromEmail}>`,
 				to,
 				subject,
 				html

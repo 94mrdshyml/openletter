@@ -127,7 +127,7 @@ This simplicity is deliberate — do not introduce a multi-tenant abstraction (s
 
 ## Security Rules
 
-- Never commit secrets, tokens, or keys to git — not even in comments. The two required secrets are the **Resend API key** and the **Better Auth secret**; both are provisioned via `wrangler secret put` by the CLI, never written to `wrangler.toml` or checked into the repo.
+- Never commit secrets, tokens, or keys to git — not even in comments. The one required Cloudflare secret is the **Better Auth secret**, provisioned via `wrangler secret put` by the CLI, never written to `wrangler.toml` or checked into the repo. The **Resend API key** is a deliberate exception to this pattern — see the Known Gotchas entry on Resend config below.
 - D1 bindings are **not** available at module load time in a Worker. Better Auth must be instantiated per-request (e.g. inside a `hooks.server.ts` / route handler using `event.platform.env.DB`), never at top-level module scope. See `ARCHITECTURE.md` and the Known Gotchas section below.
 - Never log magic-link tokens, session tokens, or the Better Auth secret — not even in development.
 - Reader email addresses are PII. Don't add logging, analytics, or debug output that writes reader email addresses to anywhere outside D1/Resend.
@@ -172,7 +172,7 @@ Implementation rule: one shared ID-generation helper (e.g. `src/lib/server/id.ts
 
 ## GitHub Actions
 
-Secrets required: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `RESEND_API_KEY` (test/sandbox key), `BETTER_AUTH_SECRET` (test value).
+Secrets required: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `BETTER_AUTH_SECRET` (test value). Resend config (API key, from name/email, Segment id) is no longer a GH secret — CI's e2e run submits placeholder values directly to `/setup` (see `e2e-global-setup.ts`), since it's now stored in D1, not env.
 
 ### `ci.yml` — runs on every PR to `main`
 
@@ -293,7 +293,8 @@ Accumulates across sessions. Read this before touching related code.
 - **D1 bindings aren't available at module load time in Workers.** Better Auth must be instantiated per-request (e.g. `auth.with(d1Database)` inside a request handler), never at top-level module scope.
 - **The Better Auth catch-all route (`/api/auth/[...betterauth]`) must be defined explicitly in SvelteKit** — Wrangler pre-computes route paths at build time, so a dynamically-generated catch-all won't be picked up the way it might be on Node.
 - **Resend Segments vs Topics vs Audiences** — this project uses Segments (internal grouping for targeting sends) and Topics (reader-facing preference categories). Audiences is deprecated on Resend's side — never reach for it, even if older Resend examples online reference it.
-- **Single Topic per publication — resolved, not open.** `PRD.md` §10 settled this: one Resend Segment + one Topic per publication, created once in `/setup` (`src/lib/server/resend.ts`). Don't build multi-category Topic UI without a fresh explicit ask — it would reintroduce exactly the config surface the wedge is meant to remove.
+- **Single Topic per publication — resolved, not open.** `PRD.md` §10 settled this: one Resend Segment + one Topic per publication. Don't build multi-category Topic UI without a fresh explicit ask — it would reintroduce exactly the config surface the wedge is meant to remove.
+- **Resend config lives in D1, not env vars, and the API key is a deliberate exception to the "secrets are Cloudflare secrets" rule.** The writer supplies their own API key, from name/email, and Segment id as fields on `/setup` (editable later in `dashboard/settings`) — not `wrangler secret put`, not auto-created by the app. Two reasons: (1) it solves setup's own chicken-and-egg problem — the founding admin's own first magic-link email needs a working Resend config to send, and that config is inserted in the same `/setup` request before the email goes out; (2) a Resend account's Segments are capped by plan and shared account-wide across every project on it, not scoped per-app, so auto-creating one on every `/setup` run collided with that cap in practice. The Topic has no such cap, so it's still auto-created once, during `/setup`, using the just-submitted key. `resendApiKey` must never be returned to the client — see `+layout.server.ts` (explicit column selection) and `dashboard/settings/+page.server.ts` (destructures it out of `load`, only ever partially updates it on save if a new value is actually submitted). Don't reintroduce `RESEND_API_KEY`-as-env-var or auto-created Segments without a fresh explicit ask.
 - **Custom domain support** — also an open question in `PRD.md` §10. Don't assume subdomain-only or custom-domain-only without checking current status.
 
 ---

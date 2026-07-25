@@ -7,7 +7,7 @@ import { publication, setupLock, user as userTable } from '$lib/server/db/schema
 import { generateId } from '$lib/server/id';
 import { uploadAvatar, uploadLogo } from '$lib/server/media';
 import { slugify } from '$lib/server/slug';
-import { createSegment, createTopic } from '$lib/server/resend';
+import { createTopic } from '$lib/server/resend';
 
 export const load: PageServerLoad = async ({ platform }) => {
 	const db = getDb(platform!.env.DB);
@@ -40,6 +40,11 @@ export const actions: Actions = {
 		const pubCategory = String(data.get('pubCategory') ?? '') || null;
 		const pubLogo = data.get('pubLogo');
 
+		const resendApiKey = String(data.get('resendApiKey') ?? '');
+		const resendFromName = String(data.get('resendFromName') ?? '') || pubName;
+		const resendFromEmail = String(data.get('resendFromEmail') ?? '');
+		const resendSegmentId = String(data.get('resendSegmentId') ?? '') || null;
+
 		let image: string | null = null;
 		if (picture instanceof File && picture.size > 0) {
 			image = await uploadAvatar(env, picture);
@@ -50,12 +55,13 @@ export const actions: Actions = {
 			logoUrl = await uploadLogo(env, pubLogo);
 		}
 
-		// One Segment + one Topic per publication, created once here (v1 is
-		// single-writer/single-publication — see PRD.md §10, no per-publication
-		// newsletter-category UI). Resend failures don't block setup; the ids
-		// just stay null and subscriber sync becomes a no-op (see resend.ts).
-		const resendSegmentId = await createSegment(env, 'Subscribers');
-		const resendTopicId = await createTopic(env, 'Newsletter');
+		// One Topic per publication (v1 is single-writer/single-publication —
+		// see PRD.md §10, no per-publication newsletter-category UI), created
+		// once here using the just-submitted key. The Segment is a manual
+		// field above, not auto-created — see resend.ts for why. A Resend
+		// failure here doesn't block setup; the topic id just stays null and
+		// subscriber sync becomes a no-op (see resend.ts).
+		const resendTopicId = await createTopic(resendApiKey, 'Newsletter');
 
 		await db.insert(publication).values({
 			name: pubName,
@@ -63,6 +69,9 @@ export const actions: Actions = {
 			tagline: pubTagline,
 			category: pubCategory,
 			logoUrl,
+			resendApiKey,
+			resendFromName,
+			resendFromEmail,
 			resendSegmentId,
 			resendTopicId
 		});

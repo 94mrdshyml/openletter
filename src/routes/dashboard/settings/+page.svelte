@@ -80,6 +80,58 @@
 				</div>
 			</div>
 		</div>
+
+		<div style="border-top:2px solid var(--color-divider);padding-top:24px">
+			<h3 style="font-size:18px;margin:0 0 4px">Email delivery</h3>
+			<p style="font-size:13px;color:var(--color-neutral-500);margin:0 0 16px">
+				Powers sign-in links, admin invites, and the newsletter.
+			</p>
+		</div>
+		<div class="field">
+			<label for="resendApiKey">Resend API key</label>
+			<input
+				class="input"
+				id="resendApiKey"
+				name="resendApiKey"
+				type="password"
+				placeholder={pub?.hasResendApiKey ? '••••••••••••••••' : 'Not set'}
+			/>
+			<p style="font-size:12px;color:var(--color-neutral-400);margin:6px 0 0">
+				Leave blank to keep the current key.
+			</p>
+		</div>
+		<div style="display:flex;gap:16px">
+			<div class="field" style="flex:1">
+				<label for="resendFromName">From name</label>
+				<input
+					class="input"
+					id="resendFromName"
+					name="resendFromName"
+					value={pub?.resendFromName ?? ''}
+				/>
+			</div>
+			<div class="field" style="flex:1">
+				<label for="resendFromEmail">From email</label>
+				<input
+					class="input"
+					id="resendFromEmail"
+					name="resendFromEmail"
+					type="email"
+					value={pub?.resendFromEmail ?? ''}
+				/>
+			</div>
+		</div>
+		<div class="field">
+			<label for="resendSegmentId">Resend Segment ID</label>
+			<input
+				class="input"
+				id="resendSegmentId"
+				name="resendSegmentId"
+				value={pub?.resendSegmentId ?? ''}
+				placeholder="Create a Segment in Resend, paste its id here"
+			/>
+		</div>
+
 		<div style="border-top:2px solid var(--color-divider);padding-top:24px;display:flex;gap:8px">
 			<button
 				type="submit"

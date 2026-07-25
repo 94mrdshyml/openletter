@@ -12,6 +12,13 @@ export const publication = sqliteTable('publication', {
 	description: text('description'),
 	category: text('category'),
 	logoUrl: text('logo_url'),
+	// Writer-supplied at /setup, editable later in dashboard/settings — never
+	// an env var/Cloudflare secret and never returned to the client (see
+	// +layout.server.ts and dashboard/settings/+page.server.ts, both of
+	// which explicitly select public-safe columns only).
+	resendApiKey: text('resend_api_key'),
+	resendFromName: text('resend_from_name'),
+	resendFromEmail: text('resend_from_email'),
 	resendSegmentId: text('resend_segment_id'),
 	resendTopicId: text('resend_topic_id'),
 	createdAt: integer('created_at', { mode: 'timestamp' })
