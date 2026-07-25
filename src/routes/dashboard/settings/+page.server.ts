@@ -4,7 +4,7 @@ import { getDb } from '$lib/server/db';
 import { invitation, publication } from '$lib/server/db/schema';
 import { sendInvitationEmail } from '$lib/server/mail';
 import { uploadLogo } from '$lib/server/media';
-import { slugify } from '$lib/server/slug';
+import { slugify } from '$lib/slug';
 
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 

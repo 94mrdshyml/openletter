@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { posts } from '$lib/mock-data';
 	import { formatPostDate } from '$lib/format';
 	import SubscribeForm from '$lib/components/SubscribeForm.svelte';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
 
 	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 	const description = $derived(page.data.publication?.description ?? '');
@@ -26,7 +28,7 @@
 		<SubscribeForm maxWidth="440px" />
 	</div>
 
-	{#if posts.length === 0}
+	{#if data.posts.length === 0}
 		<div style="border-top:2px solid var(--color-divider);padding:40px 0">
 			<p
 				style="font-size:17px;color:var(--color-neutral-600);margin:0;line-height:1.6;max-width:480px"
@@ -37,11 +39,11 @@
 		</div>
 	{:else}
 		<div style="border-top:2px solid var(--color-divider)">
-			{#each posts as post, i (post.slug)}
+			{#each data.posts as post, i (post.slug)}
 				<a
 					href={resolve('/(public)/p/[slug]', { slug: post.slug })}
 					style="display:block;padding:28px 0;text-decoration:none;color:inherit;{i <
-					posts.length - 1
+					data.posts.length - 1
 						? 'border-bottom:1px solid var(--color-divider)'
 						: ''}"
 				>
@@ -49,7 +51,7 @@
 						{post.title}
 					</h3>
 					<div style="font-size:13px;color:var(--color-neutral-500);margin:0 0 8px">
-						{formatPostDate(post.date)}
+						{formatPostDate(post.publishedAt!.toISOString().slice(0, 10))}
 					</div>
 					<p
 						style="font-size:15px;color:var(--color-neutral-700);margin:0;line-height:1.55;max-width:580px"

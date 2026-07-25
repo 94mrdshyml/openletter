@@ -40,6 +40,12 @@
 		"wrangler": "^4.97.0"
 	},
 	"dependencies": {
+		"@tiptap/core": "^3.29.0",
+		"@tiptap/extension-image": "^3.29.0",
+		"@tiptap/extension-link": "^3.29.0",
+		"@tiptap/extension-placeholder": "^3.29.0",
+		"@tiptap/extension-youtube": "^3.29.0",
+		"@tiptap/starter-kit": "^3.29.0",
 		"better-auth": "^1.6.24",
 		"drizzle-orm": "^0.45.2",
 		"nanoid": "^6.0.0"

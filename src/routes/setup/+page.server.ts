@@ -6,7 +6,7 @@ import { getDb } from '$lib/server/db';
 import { publication, setupLock, user as userTable } from '$lib/server/db/schema';
 import { generateId } from '$lib/server/id';
 import { uploadAvatar, uploadLogo } from '$lib/server/media';
-import { slugify } from '$lib/server/slug';
+import { slugify } from '$lib/slug';
 
 export const load: PageServerLoad = async ({ platform }) => {
 	const db = getDb(platform!.env.DB);
