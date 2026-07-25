@@ -10,7 +10,8 @@
 			data.user.email
 	);
 	const avatarUrl = $derived(
-		data.user.image || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(displayName)}`
+		data.user.image ||
+			`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(displayName)}`
 	);
 </script>
 
