@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import PublicNav from '$lib/components/PublicNav.svelte';
 	import SubscribeForm from '$lib/components/SubscribeForm.svelte';
 
 	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
@@ -12,24 +13,28 @@
 	<title>{name}</title>
 </svelte:head>
 
-<div style="min-height:100vh;display:flex;flex-direction:column">
-	<div style="height:3px;background:var(--color-accent)"></div>
+<PublicNav />
+<div class="container" style="padding:56px clamp(20px, 8vw, 90px) 48px">
+	{#if logoUrl}
+		<img src={logoUrl} alt="" style="width:64px;height:64px;object-fit:cover;margin:0 0 20px" />
+	{/if}
+	<h1 style="font-size:48px;line-height:1.05;margin:0 0 12px;letter-spacing:-0.025em">
+		{name}
+	</h1>
+	{#if tagline}
+		<p
+			style="font-size:17px;color:var(--color-neutral-600);margin:0 0 36px;max-width:420px;line-height:1.5"
+		>
+			{tagline}
+		</p>
+	{/if}
+	<SubscribeForm maxWidth="440px" email={readerEmail} />
+</div>
+<div style="border-top:2px solid var(--color-divider)">
 	<div
-		style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px clamp(20px, 8vw, 90px);text-align:center"
+		class="container"
+		style="padding:32px clamp(20px, 8vw, 90px);font-size:13px;color:var(--color-neutral-500)"
 	>
-		{#if logoUrl}
-			<img src={logoUrl} alt="" style="width:72px;height:72px;object-fit:cover;margin:0 0 24px" />
-		{/if}
-		<h1 style="font-size:42px;line-height:1.08;margin:0 0 12px;letter-spacing:-0.025em">
-			{name}
-		</h1>
-		{#if tagline}
-			<p
-				style="font-size:17px;color:var(--color-neutral-600);margin:0 0 40px;line-height:1.6;max-width:480px"
-			>
-				{tagline}
-			</p>
-		{/if}
-		<SubscribeForm maxWidth="440px" email={readerEmail} />
+		{name} · Powered by OpenLetter
 	</div>
 </div>

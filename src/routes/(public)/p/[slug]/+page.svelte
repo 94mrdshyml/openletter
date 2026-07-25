@@ -13,7 +13,7 @@
 	<title>{data.post.title} · {name}</title>
 </svelte:head>
 
-<article style="padding:56px clamp(20px, 8vw, 90px) 48px;max-width:860px">
+<article class="container-narrow" style="padding:56px clamp(20px, 8vw, 90px) 48px">
 	<div style="font-size:13px;color:var(--color-neutral-500);margin:0 0 16px;letter-spacing:0.02em">
 		{formatPostDate(data.post.date)}
 	</div>
@@ -26,7 +26,7 @@
 		{/each}
 	</div>
 </article>
-<div style="padding:48px clamp(20px, 8vw, 90px);max-width:860px">
+<div class="container-narrow" style="padding:48px clamp(20px, 8vw, 90px)">
 	<div style="border-top:2px solid var(--color-divider);padding:36px 0 0">
 		<h4 style="font-size:18px;margin:0 0 8px">Read more from {name}</h4>
 		<p style="font-size:15px;color:var(--color-neutral-600);margin:0 0 20px;line-height:1.5">
@@ -35,8 +35,11 @@
 		<SubscribeForm maxWidth="400px" />
 	</div>
 </div>
-<div
-	style="padding:32px clamp(20px, 8vw, 90px);border-top:2px solid var(--color-divider);font-size:13px;color:var(--color-neutral-500)"
->
-	{name} · Powered by OpenLetter
+<div style="border-top:2px solid var(--color-divider)">
+	<div
+		class="container"
+		style="padding:32px clamp(20px, 8vw, 90px);font-size:13px;color:var(--color-neutral-500)"
+	>
+		{name} · Powered by OpenLetter
+	</div>
 </div>

@@ -15,7 +15,7 @@
 	<title>Posts · {name}</title>
 </svelte:head>
 
-<div style="padding:40px;max-width:860px">
+<div class="container" style="padding:40px">
 	<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 32px">
 		<h2 style="font-size:28px;margin:0;letter-spacing:-0.02em">Posts</h2>
 		<a
