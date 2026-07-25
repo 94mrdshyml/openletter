@@ -26,12 +26,28 @@ async function sendEmail(env: Env, to: string, subject: string, html: string) {
 }
 
 export async function sendMagicLinkEmail(env: Env, to: string, url: string) {
-	await sendEmail(
-		env,
-		to,
-		'Your sign-in link',
-		`<p>Click below to sign in:</p><p><a href="${url}">${url}</a></p>`
-	);
+	// Every magic-link request — admin dashboard login, admin bootstrap in
+	// /setup, and reader subscribe — goes through this one callback. Better
+	// Auth always embeds the request's callbackURL in the link (see
+	// magic-link/index.mjs), so it doubles as a reliable signal for which
+	// copy fits: only admin flows use /dashboard, so anything else is a
+	// reader subscribing, not signing in.
+	const callbackURL = new URL(url).searchParams.get('callbackURL');
+	if (callbackURL === '/dashboard') {
+		await sendEmail(
+			env,
+			to,
+			'Your sign-in link',
+			`<p>Click below to sign in:</p><p><a href="${url}">${url}</a></p>`
+		);
+	} else {
+		await sendEmail(
+			env,
+			to,
+			'Confirm your subscription',
+			`<p>Click below to confirm your subscription and start receiving new posts by email:</p><p><a href="${url}">${url}</a></p>`
+		);
+	}
 }
 
 export async function sendInvitationEmail(env: Env, to: string, url: string) {

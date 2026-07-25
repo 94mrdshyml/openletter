@@ -15,25 +15,15 @@ async function resendFetch(apiKey: string, path: string, method: string, body?: 
 // preference categories) are Resend's post-Audiences contact model — see
 // CLAUDE.md's Known Gotchas. Never use the deprecated /audiences endpoint.
 //
-// The API key and Segment id are writer-supplied (via /setup, then editable
-// in dashboard/settings) and stored on the publication row — not env vars,
-// not auto-created. A Resend account's Segments are capped by plan and
-// shared account-wide across every project on it, not scoped per-app, so
-// auto-creating one collided with that cap in practice. The Topic has no
-// such cap, so it's still auto-created once, during /setup.
-
-export async function createTopic(apiKey: string, name: string): Promise<string | null> {
-	try {
-		const topic = await resendFetch(apiKey, '/topics', 'POST', {
-			name,
-			default_subscription: 'opt_in'
-		});
-		return topic.id;
-	} catch {
-		console.error('Failed to create Resend topic');
-		return null;
-	}
-}
+// The API key, Segment id, and Topic id are all writer-supplied (via
+// /setup, then editable in dashboard/settings) and stored on the
+// publication row — not env vars, not auto-created. Both a Segment and a
+// Topic belong to whichever Resend account issued them, so an
+// auto-provisioned one is only ever valid for the account whose key
+// created it — the app has no reliable way to know when a stored key has
+// moved to a different account, so it doesn't try to manage either
+// resource's lifecycle at all. The writer creates both directly in the
+// Resend dashboard and pastes the ids.
 
 // Creates (or attaches) a subscriber as a Resend contact on the
 // publication's single Segment + Topic. Fails open, same resilience

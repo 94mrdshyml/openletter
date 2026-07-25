@@ -121,15 +121,27 @@
 				/>
 			</div>
 		</div>
-		<div class="field">
-			<label for="resendSegmentId">Resend Segment ID</label>
-			<input
-				class="input"
-				id="resendSegmentId"
-				name="resendSegmentId"
-				value={pub?.resendSegmentId ?? ''}
-				placeholder="Create a Segment in Resend, paste its id here"
-			/>
+		<div style="display:flex;gap:16px">
+			<div class="field" style="flex:1">
+				<label for="resendSegmentId">Resend Segment ID</label>
+				<input
+					class="input"
+					id="resendSegmentId"
+					name="resendSegmentId"
+					value={pub?.resendSegmentId ?? ''}
+					placeholder="Create a Segment in Resend, paste its id here"
+				/>
+			</div>
+			<div class="field" style="flex:1">
+				<label for="resendTopicId">Resend Topic ID</label>
+				<input
+					class="input"
+					id="resendTopicId"
+					name="resendTopicId"
+					value={pub?.resendTopicId ?? ''}
+					placeholder="Create a Topic in Resend, paste its id here"
+				/>
+			</div>
 		</div>
 
 		<div style="border-top:2px solid var(--color-divider);padding-top:24px;display:flex;gap:8px">
