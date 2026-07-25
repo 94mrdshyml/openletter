@@ -2,6 +2,40 @@
 
 ---
 
+## Hotfix 13 — Switch profile avatar fallback to DiceBear pixel-art, seeded on email
+
+**Date & Time (IST):** 2026-07-26 01:05 IST
+**Status:** Completed
+**Branch:** fix/dicebear-pixel-art-avatar
+
+### What We Built
+
+The `/my-profile` fallback avatar (shown when a user hasn't uploaded a picture) now uses DiceBear's **pixel-art** style instead of **initials**, seeded on the user's **email** instead of their display name (so it stays stable even if they change their first/last name later).
+
+### How We Built It
+
+- `src/routes/my-profile/+page.svelte`: avatar URL changed from `https://api.dicebear.com/9.x/initials/svg?seed=<display name>` to `https://api.dicebear.com/10.x/pixel-art/svg?seed=<email>` (version bumped to DiceBear's current 10.x per their docs at the same time). The now-unused `displayName` derived value was removed — nothing else in the page referenced it.
+- Dropped the `border-radius:50%` circle clip on the avatar `<img>` — pixel art is meant to render as a square sprite, not be cropped into a circle.
+- Updated the helper copy under the file input from "generated from your name" to "generated from your email".
+
+### In Scope
+
+- Avatar style + seed swap only.
+
+### Out of Scope
+
+- Nothing else on the page changed. Uploaded avatars (`user.image`) are unaffected — this only touches the fallback shown when no picture is set.
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- Re-confirmed the `(public)/page.svelte.e2e.ts` "shows an inline confirmation after subscribing" flake (first flagged in Hotfix 8) is still present and still pre-existing — reproduced 3/3 in isolation on this branch AND on a clean `git stash` of main. Still unrelated to any nav/profile work; still unfixed; still worth a dedicated session investigating the `use:enhance` hydration race.
+
+---
+
 ## Hotfix 12 — Add Log out to the public navbar
 
 **Date & Time (IST):** 2026-07-26 00:20 IST

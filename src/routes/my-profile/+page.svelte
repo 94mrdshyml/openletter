@@ -4,14 +4,9 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	const displayName = $derived(
-		[data.user.firstName, data.user.lastName].filter(Boolean).join(' ') ||
-			data.user.name ||
-			data.user.email
-	);
 	const avatarUrl = $derived(
 		data.user.image ||
-			`https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(displayName)}`
+			`https://api.dicebear.com/10.x/pixel-art/svg?seed=${encodeURIComponent(data.user.email)}`
 	);
 </script>
 
@@ -47,12 +42,12 @@
 					<img
 						src={avatarUrl}
 						alt=""
-						style="width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--color-surface)"
+						style="width:64px;height:64px;object-fit:cover;background:var(--color-surface)"
 					/>
 					<div>
 						<input class="input" id="avatar" name="avatar" type="file" accept="image/*" />
 						<p style="font-size:12px;color:var(--color-neutral-400);margin:6px 0 0">
-							Optional. A picture is generated from your name if none is set.
+							Optional. A picture is generated from your email if none is set.
 						</p>
 					</div>
 				</div>
