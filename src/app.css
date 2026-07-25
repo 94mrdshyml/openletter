@@ -158,6 +158,15 @@ figcaption {
 	background: var(--color-divider);
 }
 
+.container {
+	max-width: 860px;
+	margin: 0 auto;
+}
+.container-narrow {
+	max-width: 680px;
+	margin: 0 auto;
+}
+
 .btn {
 	display: inline-flex;
 	align-items: center;

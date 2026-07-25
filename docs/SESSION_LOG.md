@@ -2,6 +2,41 @@
 
 ---
 
+## Hotfix 8 — Desktop containers (centered max-width) + welcome page rewritten to match site
+
+**Date & Time (IST):** 2026-07-25 15:50 IST
+**Status:** Completed
+**Branch:** fix/desktop-containers-and-welcome-consistency
+
+### What happened
+
+User-reported, screenshots from a desktop browser: no page on the site used a centered max-width container — content was pinned to the left edge with unbounded width on wide viewports (homepage post excerpts ran edge-to-edge at 1920px, `/dashboard/analytics` had no width cap at all). Separately, `/welcome` (rebuilt in PR #16) looked nothing like the rest of the site — full-viewport centered hero, no nav, `h1` at 42px — while every other page is left-aligned with a nav bar and `h1` at 48px.
+
+### Fix
+
+- `src/app.css` gains two utility classes: `.container` (`max-width: 860px; margin: 0 auto`) and `.container-narrow` (`max-width: 680px; margin: 0 auto`). Deliberately just max-width + centering — the existing `clamp(20px, 8vw, 90px)` horizontal padding from Hotfix 5 stays inline and untouched, so mobile behavior is unaffected (a `.container` is a no-op below its max-width).
+- **Scope and widths were explicit product decisions, not inferred:** `.container` (860px) applies to "other" pages — home, dashboard (all 5 pages), the post editor; `.container-narrow` (680px) applies only to actual reading content — the post article body and its trailing "Read more" subscribe block. Confirmed with the user before implementing.
+- **Full-bleed chrome, centered content pattern** applied consistently everywhere a page has a border-spanning bar (the DESIGN.md-documented "3px accent rule" nav border, or a footer divider): the bordered element stays full-width, with an inner `class="container"` div carrying the padding/content so the line still spans edge-to-edge while the text centers. Applied to `PublicNav.svelte`, `AdminNav.svelte`, the editor's own nav (`dashboard/posts/new`), and both public-page footers.
+- `(public)/+page.svelte` and `(public)/p/[slug]/+page.svelte`: content divs got `class="container"` / `class="container-narrow"` directly (no restructuring needed, already had the right padding).
+- Dashboard pages' per-page ad hoc `max-width` values (780px, none, 860px, 520px — four different numbers across five pages, the actual root cause of "no containers") replaced with the unified `.container`. Editor's writing column widened from 680px→860px per the explicit "editor counts as 860" instruction. **Settings page is the one deliberate exception:** its form fields keep their existing 520px width (nested inside the new 860px `.container`) rather than stretching inputs to 860px wide, which would look broken — the _page_ is centered/consistent with the rest of the dashboard, the _form_ keeps a sane reading width. Flagged rather than silently done.
+- `/welcome` rewritten to structurally match the homepage: added `<PublicNav />`, dropped the full-viewport centered-hero treatment, `h1` now 48px left-aligned inside `.container` (was 42px centered), added the same footer line homepage/post-page have. Logo/tagline/subscribe-form-with-email-prefill behavior (from PR #16) unchanged.
+
+### Verification
+
+Same worktree-isolation approach as Hotfix 5 (another agent had uncommitted work on `fix/resend-config-in-setup` in the main working directory throughout this session). Visually verified every touched page at 1920×1080 and 375×812 via `gstack browse` against a real `wrangler dev` preview, both anonymous and authenticated (dashboard). `bun run check` (0 errors), `eslint .` (clean), `bun run test:unit` (5 passed), `bun run build` (succeeds), `bun run test:e2e` (33/34 passed — see below).
+
+**One e2e failure, confirmed pre-existing and unrelated:** `(public)/page.svelte.e2e.ts` → "shows an inline confirmation after subscribing" failed intermittently (roughly 1-in-5 locally). Before assuming it was mine, `git stash`ed this session's entire diff and re-ran the same test 5× against unmodified `main` — identical ~1-in-5 failure rate, same error (`/?/subscribe` hard-navigates instead of `use:enhance` intercepting it). This session touched zero files in `SubscribeForm.svelte` or the subscribe action. Not fixed here — root-causing a client-hydration race is its own investigation, out of scope for a container/CSS hotfix.
+
+**Local-only gotcha, not a code issue (superseded during merge, see below):** `bun run check` initially failed with `Property 'RESEND_API_KEY' does not exist on type 'Env'` — at the time this branch was cut, the main repo's own local `.dev.vars` (and the tracked `.dev.vars.example` template) were missing `RESEND_API_KEY` despite it being required since Session 9/12, so `wrangler types` never generated it into the `Env` type. Added a placeholder value to this worktree's gitignored `.dev.vars` only to unblock local verification. **Moot as of merging this branch with `main`:** Hotfix 6 (below) retires `RESEND_API_KEY` as an env var entirely, moving Resend config into D1 — the gap this note originally flagged no longer exists in the merged code.
+
+### Notes for Future Sessions
+
+- **The subscribe-confirmation e2e flake is real and reproducible on `main` independent of this change** (~1-in-5 locally). `playwright.config.ts` still has no `retries` configured — this was flagged as far back as Session 8 for a different flaky test and never addressed. Worth adding `retries: 1` for CI generally, and separately worth root-causing why `use:enhance` sometimes loses the race to the browser's default form submission on this specific form.
+- **Settings page now has a `.container` (860px) outer wrapper with the form itself nested at its original 520px** — if a future session wants the form fields themselves wider, that's a separate, deliberate design call, not an oversight. This now also wraps Hotfix 6's new "Email delivery" fields (Resend API key/from name/from email/Segment ID), merged in at the same 520px width.
+- Two new CSS utility classes (`.container`, `.container-narrow`) are now the standard way to center page content — any new public or dashboard route should use one of these rather than a fresh ad hoc `max-width` value.
+
+---
+
 ## Hotfix 7 — Recreate the Resend Topic when the API key changes
 
 **Date & Time (IST):** 2026-07-25 21:15 IST
