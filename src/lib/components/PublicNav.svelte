@@ -3,12 +3,13 @@
 	import { page } from '$app/state';
 
 	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
+	const user = $derived(page.data.user);
 </script>
 
 <nav style="border-bottom:3px solid var(--color-accent)">
 	<div
 		class="container"
-		style="display:flex;align-items:center;padding:20px clamp(20px, 8vw, 90px)"
+		style="display:flex;align-items:center;gap:20px;padding:20px clamp(20px, 8vw, 90px)"
 	>
 		<a
 			href={resolve('/')}
@@ -16,11 +17,28 @@
 		>
 			{name}
 		</a>
-		<a
-			href={resolve('/')}
-			style="font-size:14px;color:var(--color-text);text-decoration:none;font-family:var(--font-body)"
-		>
-			Subscribe
-		</a>
+		{#if user}
+			{#if user.role === 'admin'}
+				<a
+					href={resolve('/dashboard')}
+					style="font-size:14px;color:var(--color-text);text-decoration:none;font-family:var(--font-body)"
+				>
+					Dashboard
+				</a>
+			{/if}
+			<a
+				href={resolve('/my-profile')}
+				style="font-size:14px;color:var(--color-text);text-decoration:none;font-family:var(--font-body)"
+			>
+				My profile
+			</a>
+		{:else}
+			<a
+				href={resolve('/login')}
+				style="font-size:14px;color:var(--color-text);text-decoration:none;font-family:var(--font-body)"
+			>
+				Log in
+			</a>
+		{/if}
 	</div>
 </nav>

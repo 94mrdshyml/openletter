@@ -2,6 +2,49 @@
 
 ---
 
+## Hotfix 11 — Replace navbar "Subscribe" with My profile / Dashboard / Log in
+
+**Date & Time (IST):** 2026-07-25 23:45 IST
+**Status:** Completed
+**Branch:** fix/nav-profile-dashboard-links
+
+### What We Built
+
+The public navbar's "Subscribe" link (which pointed at `/`, not the subscribe flow, and had no real purpose since the homepage already has its own subscribe form) is replaced with identity-aware links: **Log in** when signed out; **My profile** for any signed-in user; **Dashboard** additionally for admins only. A new `/my-profile` page lets any signed-in user (reader or admin) set their first name, last name, and profile picture. If no picture is set, a DiceBear-generated avatar (initials style, seeded on the user's display name) is shown instead.
+
+### How We Built It
+
+- `src/routes/+layout.server.ts` now also returns a display-safe `user` slice (`firstName`, `lastName`, `name`, `image`, `role`) from `locals.user`, alongside the existing `publication` data — this flows to every page, so `PublicNav` can read it client-side via `page.data.user`.
+- `PublicNav.svelte` conditionally renders the three link states off `page.data.user`.
+- `src/routes/my-profile/+page.server.ts` — `load` redirects to `/login` if `!locals.user`; `save` action updates `user.firstName`/`lastName` and, if a file was submitted, uploads it via the **already-existing but previously unused** `uploadAvatar()` helper in `src/lib/server/media.ts` and stores the resulting R2 URL in `user.image`. No schema migration needed — `user.firstName`, `user.lastName`, and `user.image` already existed as columns (the last two are Better Auth's own default fields).
+- `src/routes/my-profile/+page.svelte` mirrors the existing `/login` standalone-card layout (accent top bar, centered card, no nav) rather than reusing `PublicNav`/`AdminNav`, since the page must work for both readers and admins. DiceBear URL: `https://api.dicebear.com/9.x/initials/svg?seed=<display name>`.
+- Extended `GET /api/test/login` (test-only, `ENABLE_TEST_AUTH` gated) to accept an optional `role=reader` query param, defaulting to `admin` to preserve every existing caller's behavior unchanged. Added `loginAsTestReader()` next to `loginAsTestWriter()` in `src/lib/test/auth.ts` — needed because the new Dashboard-link gating is genuinely role-dependent and the existing helper always minted admin sessions, which made it impossible to write a real e2e test for the reader (non-admin) nav state.
+
+### In Scope
+
+- Navbar link replacement (Log in / My profile / Dashboard)
+- `/my-profile` page: view + edit first name, last name, avatar (R2 upload) or DiceBear fallback
+- Role-gated Dashboard link (admin only); My profile link for any signed-in user
+- E2E coverage: anonymous/reader/admin nav states, `/my-profile` navigation, unauthenticated redirect, real save round-trip
+
+### Out of Scope
+
+- No change to `AdminNav` (dashboard's own nav) — it already has its own "Log out" and wasn't part of this ask.
+- No avatar shown inside the navbar itself — only text links, matching the existing "Subscribe" link's styling; avatar display is confined to `/my-profile`.
+
+### Breaking Changes
+
+NONE — `resendApiKey` handling, D1 schema, and env vars are all untouched. No migration was needed.
+
+### Notes for Future Sessions
+
+- `uploadAvatar()` in `media.ts` existed before this session but was dead code (nothing called it) — it's now wired up via `/my-profile`.
+- Pre-existing repo-wide CRLF/prettier drift (`bun run lint` fails on ~101 files) reproduces identically on a clean `git stash` of this branch's changes — confirmed not a regression from this session, same as flagged in Hotfix 8/9. Still unresolved; a dedicated `prettier --write .` pass across the whole repo would need its own session since it touches nearly every file.
+- No `gstack`/browser-screenshot tool was available in this session's environment. Manual QA was done via direct HTTP requests against the real built Worker (`bun run preview`, port 4173) simulating anonymous/reader/admin sessions via the test-login endpoint, plus the full 41-test Playwright (real Chromium) suite passing — not a visual screenshot. If a future session has screenshot tooling available, a quick visual pass of `/my-profile` (especially the DiceBear fallback avatar rendering) would be worthwhile.
+- Local `wrangler dev`/`preview` was flaky in this sandboxed shell — it would serve one request then exit, and two overlapping instances from retries silently fought over port 4173. Fixed by verifying no stray `workerd`/`wrangler` processes were running (PowerShell `Get-CimInstance Win32_Process` filtered by worktree path) before each attempt, and by running the full curl-based QA sequence as one shell command so the background server process wasn't torn down between tool calls.
+
+---
+
 ## Hotfix 10 — Revert /welcome to full-viewport hero; fix dashboard nav wrapping
 
 **Date & Time (IST):** 2026-07-25 22:15 IST

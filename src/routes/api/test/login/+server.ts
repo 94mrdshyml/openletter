@@ -15,6 +15,7 @@ export const GET: RequestHandler = async ({ platform, url }) => {
 	}
 
 	const email = url.searchParams.get('email') ?? 'test-writer@example.com';
+	const role = url.searchParams.get('role') === 'reader' ? 'reader' : 'admin';
 	const auth = createTestAuth(env, url.origin);
 	const ctx = await auth.$context;
 	const test = ctx.test;
@@ -24,12 +25,12 @@ export const GET: RequestHandler = async ({ platform, url }) => {
 
 	let userId: string;
 	if (existing) {
-		if (existing.role !== 'admin') {
-			await db.update(userTable).set({ role: 'admin' }).where(eq(userTable.id, existing.id));
+		if (existing.role !== role) {
+			await db.update(userTable).set({ role }).where(eq(userTable.id, existing.id));
 		}
 		userId = existing.id;
 	} else {
-		userId = (await test.saveUser(test.createUser({ email, role: 'admin' }))).id;
+		userId = (await test.saveUser(test.createUser({ email, role }))).id;
 	}
 
 	const cookies = await test.getCookies({ userId, domain: url.hostname });
