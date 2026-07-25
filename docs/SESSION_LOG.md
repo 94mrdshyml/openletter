@@ -2,6 +2,38 @@
 
 ---
 
+## Hotfix 5 — Mobile: horizontal padding scales down instead of fixed 90px
+
+**Date & Time (IST):** 2026-07-25 12:45 IST
+**Status:** Completed
+**Branch:** fix/mobile-padding
+
+### What happened
+
+User-reported, screenshot from a real phone against the deployed Worker: on `/`, the nav, headline, and post list were all squeezed into a narrow center column, with roughly 90px of dead space on each side. Checked the CSS — `app.css` has zero `@media` queries anywhere, and every public-facing page hardcodes `90px` as the horizontal padding value inline, unconditionally, regardless of viewport width. At 375px (a typical phone), that's ~180px gone to padding — under half the screen left for content.
+
+### Fix
+
+Replaced the horizontal `90px` in every inline `padding` on the public-facing pages with `clamp(20px, 8vw, 90px)` — scales down to 20px on narrow phones, grows with viewport up to the original 90px ceiling on desktop (unchanged there, confirmed via screenshot comparison). No new classes, no media queries, no JS — one CSS function, same inline-style pattern already used everywhere else in this codebase.
+
+Files touched: `src/lib/components/PublicNav.svelte`, `src/routes/(public)/+page.svelte`, `src/routes/(public)/p/[slug]/+page.svelte`, `src/routes/welcome/+page.svelte`. Vertical padding untouched — the screenshot only showed a horizontal problem, and touching vertical spacing wasn't asked for.
+
+Dashboard (`/dashboard/*`) pages have the same hardcoded-padding pattern but weren't touched — writer-only, not what was reported, out of scope for this hotfix.
+
+### Verification
+
+Isolated in a separate git worktree (`fix/mobile-padding` off `main`) since another agent had uncommitted work in progress on the main working directory at the time. Verified visually with `gstack browse` at 375×812 (mobile) and 1440×900 (desktop) against a real `wrangler dev` preview — mobile no longer squeezed, desktop pixel-identical to before. Full Definition of Done: `bun run check` (0 errors), `eslint .` (clean), `bun run test:unit` (5 passed), `bun run build` (succeeds), `bun run test:e2e` (34/34 passed).
+
+`prettier --check .` fails on this branch, but on 94 files this session never touched (pre-existing CRLF line-ending drift on this Windows checkout, confirmed by diffing which files are flagged before vs. after this change — the 4 touched files pass `prettier --check` individually). Not fixed here — out of scope for a padding hotfix, flagging for whoever owns tooling/CI next.
+
+### Notes for Future Sessions
+
+- **The `prettier --check .` / `bun run lint` CRLF drift is real and repo-wide, not from this hotfix.** 94 files fail formatting on a fresh Windows checkout of `main`. Worth a dedicated session to either normalize line endings (`.gitattributes` with `* text=auto eol=lf`) or adjust Prettier's `endOfLine` setting — right now `bun run lint` in CI may or may not be affected depending on the runner's line-ending behavior; if CI is green today, that's Linux runners not exhibiting the same drift, not proof the repo is clean.
+- **Dashboard pages have the same fixed-90px-padding pattern** (`dashboard/+page.svelte`, `dashboard/posts/+page.svelte`, `dashboard/settings/+page.svelte`, `dashboard/posts/new/+page.svelte`, `dashboard/analytics/+page.svelte`) and are presumably just as squeezed on a writer's phone. Not touched this session — only the reported public-facing pages were in scope. Same `clamp(20px, 8vw, 90px)` swap would apply if/when asked.
+- **Local D1 gotcha hit during this session's manual QA:** testing `/setup` via raw `curl` (rather than the Playwright `globalSetup` flow) left a partial/orphaned `setup_lock` + `publication` row after a failed attempt, which then caused `bun run test:e2e` to fail against stale data (`(public)/page.svelte.e2e.ts` and others expecting "The Meridian" instead saw the leftover test publication name). Fixed by wiping `.wrangler/state/v3/d1` and reapplying migrations before the real e2e run. Lesson: don't hand-roll `/setup` completion for manual QA — use the same `globalSetup` pattern the e2e suite already has, or wipe local D1 state afterward before trusting `test:e2e` output.
+
+---
+
 ## Hotfix 4 — Backfill prod publication's Resend Segment/Topic ids
 
 **Date & Time (IST):** 2026-07-24 22:45 IST
