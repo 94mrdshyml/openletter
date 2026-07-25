@@ -7,7 +7,6 @@ import { publication, setupLock, user as userTable } from '$lib/server/db/schema
 import { generateId } from '$lib/server/id';
 import { uploadAvatar, uploadLogo } from '$lib/server/media';
 import { slugify } from '$lib/server/slug';
-import { createTopic } from '$lib/server/resend';
 
 export const load: PageServerLoad = async ({ platform }) => {
 	const db = getDb(platform!.env.DB);
@@ -44,6 +43,7 @@ export const actions: Actions = {
 		const resendFromName = String(data.get('resendFromName') ?? '') || pubName;
 		const resendFromEmail = String(data.get('resendFromEmail') ?? '');
 		const resendSegmentId = String(data.get('resendSegmentId') ?? '') || null;
+		const resendTopicId = String(data.get('resendTopicId') ?? '') || null;
 
 		let image: string | null = null;
 		if (picture instanceof File && picture.size > 0) {
@@ -54,14 +54,6 @@ export const actions: Actions = {
 		if (pubLogo instanceof File && pubLogo.size > 0) {
 			logoUrl = await uploadLogo(env, pubLogo);
 		}
-
-		// One Topic per publication (v1 is single-writer/single-publication —
-		// see PRD.md §10, no per-publication newsletter-category UI), created
-		// once here using the just-submitted key. The Segment is a manual
-		// field above, not auto-created — see resend.ts for why. A Resend
-		// failure here doesn't block setup; the topic id just stays null and
-		// subscriber sync becomes a no-op (see resend.ts).
-		const resendTopicId = await createTopic(resendApiKey, 'Newsletter');
 
 		await db.insert(publication).values({
 			name: pubName,
