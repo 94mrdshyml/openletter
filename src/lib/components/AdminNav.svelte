@@ -15,15 +15,20 @@
 </script>
 
 <nav style="border-bottom:3px solid var(--color-accent)">
-	<div class="container" style="display:flex;align-items:center;gap:24px;padding:16px 40px">
+	<div
+		class="container-wide"
+		style="display:flex;align-items:center;gap:24px;padding:16px 40px;overflow-x:auto"
+	>
 		<span
-			style="font-family:var(--font-heading);font-weight:800;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent)"
+			style="font-family:var(--font-heading);font-weight:800;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-accent);white-space:nowrap"
 		>
 			OpenLetter
 		</span>
-		<div style="width:2px;height:18px;background:var(--color-divider);margin:0 4px"></div>
+		<div
+			style="width:2px;height:18px;background:var(--color-divider);margin:0 4px;flex-shrink:0"
+		></div>
 		<span
-			style="font-family:var(--font-heading);font-weight:800;font-size:16px;color:var(--color-text);margin-right:auto;letter-spacing:-0.01em"
+			style="font-family:var(--font-heading);font-weight:800;font-size:16px;color:var(--color-text);margin-right:auto;letter-spacing:-0.01em;white-space:nowrap"
 		>
 			{name}
 		</span>
@@ -31,7 +36,7 @@
 			<a
 				href={tab.href}
 				aria-current={tab.id === current ? 'page' : undefined}
-				style="font-size:14px;text-decoration:none;{tab.id === current
+				style="font-size:14px;text-decoration:none;white-space:nowrap;{tab.id === current
 					? 'color:var(--color-text);border-bottom:2px solid var(--color-text);padding-bottom:2px'
 					: 'color:var(--color-neutral-500)'}"
 			>
@@ -40,14 +45,14 @@
 		{/each}
 		<a
 			href={resolve('/')}
-			style="font-size:14px;color:var(--color-neutral-500);text-decoration:none"
+			style="font-size:14px;color:var(--color-neutral-500);text-decoration:none;white-space:nowrap"
 		>
 			View publication →
 		</a>
 		<form method="POST" action="/logout" style="display:contents">
 			<button
 				type="submit"
-				style="background:none;border:none;padding:0;font:inherit;cursor:pointer;font-size:14px;color:var(--color-neutral-500)"
+				style="background:none;border:none;padding:0;font:inherit;cursor:pointer;font-size:14px;color:var(--color-neutral-500);white-space:nowrap"
 			>
 				Log out
 			</button>

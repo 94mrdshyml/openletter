@@ -2,6 +2,39 @@
 
 ---
 
+## Hotfix 9 — Revert /welcome to full-viewport hero; fix dashboard nav wrapping
+
+**Date & Time (IST):** 2026-07-25 22:15 IST
+**Status:** Completed
+**Branch:** fix/welcome-hero-and-dashboard-nav-width
+
+### What happened
+
+Two user-reported issues after Hotfix 8 shipped, both regressions from that session's container work:
+
+1. **`/welcome`'s left-aligned-with-nav rebuild was explicitly disliked.** The elements (colors, type, spacing) were fine, but the layout wasn't — user wanted the original centered full-viewport hero back (no nav, no footer divider), just logo/name/tagline/form centered in the middle of the screen.
+2. **`AdminNav`'s links wrapped mid-text** once capped at Hotfix 8's `.container` (860px) — "OpenLetter | Publication Name · Dashboard · Analytics · Posts · Settings · View publication → · Log out" doesn't fit in 860px, so individual flex items got compressed narrow enough that their own text wrapped internally (e.g. "View publication →" breaking across two lines) — screenshotted by the user.
+
+### Fix
+
+- `src/routes/welcome/+page.svelte` reverted to the original PR #16 structure: `min-height:100vh` flex-centered column, no `<PublicNav>`, no footer. `h1` back to 42px centered (was 48px left-aligned). Logo/tagline/subscribe-form-with-email-prefill logic untouched.
+- `src/app.css` gains a third container class, `.container-wide` (`max-width: 1120px`), for dashboard use — public pages keep `.container` (860px) as-is, this doesn't touch them.
+- `AdminNav.svelte`'s inner row switched from `.container` to `.container-wide`, plus `white-space:nowrap` added to every nav item's own style (brand, pub name, each tab, "View publication →", "Log out") so text can never wrap internally again regardless of available width, and `overflow-x:auto` on the row itself as a floor for any viewport narrower than the nav's natural width (graceful horizontal scroll instead of broken wrapping).
+- All 5 dashboard content pages (`dashboard`, `analytics`, `posts`, `posts/new`'s nav, `settings`) switched from `.container` to `.container-wide` too, per the explicit "make the dashboard a little wider" ask — not just the nav.
+- **Two deliberate exceptions, same reasoning as Hotfix 8's settings call:** the post editor's actual writing column (title + body `contenteditable`) stays at `.container` (860px, comfortable prose width) even though its nav above it is now `.container-wide` (1120px) — widening the nav and narrowing the content beneath it is an established pattern in this codebase already (the post page itself does the same: `.container-narrow` article under a `.container` footer). Settings' form fields likewise stay at their existing 520px width, now just centered inside the wider 1120px page.
+
+### Verification
+
+Same worktree-isolation approach as prior hotfixes (another agent had an in-progress branch, `fix/manual-topic-id-and-subscribe-flow`, in the main working directory throughout). Visually verified `/welcome` (desktop 1920px + mobile 375px, no nav/footer, fully centered, confirmed via screenshot) and every dashboard page's nav at 1280/1366/1440/1920px (the exact width range a writer would realistically use) — single-line nav, no wrapping, at all four. `bun run check` (0 errors), `eslint .` (clean), `bun run test:unit` (5 passed), `bun run build` (succeeds), `bun run test:e2e` (33/34 passed — the one failure is the same pre-existing subscribe-confirmation flake documented in Hotfix 8, confirmed unrelated there via `git stash` against clean `main`; not re-verified again this session since the root cause and evidence are already on record).
+
+### Notes for Future Sessions
+
+- **Three container classes now exist:** `.container` (860px, public pages + editor's writing column + settings' form), `.container-narrow` (680px, post-page reading content only), `.container-wide` (1120px, dashboard chrome and content generally). Pick based on what the content actually is — reading text, general page content, or a nav/toolbar row with many items — not by copying whichever one is nearby.
+- **The subscribe-confirmation e2e flake is still unresolved** (see Hotfix 8's notes) — not touched again this session, still worth a dedicated investigation.
+- If a future session adds more items to `AdminNav` (another tab, another action), re-check nav width at 1280px specifically — that's the narrowest realistic desktop width this was verified against, and the floor before `overflow-x:auto` kicks in.
+
+---
+
 ## Hotfix 8 — Desktop containers (centered max-width) + welcome page rewritten to match site
 
 **Date & Time (IST):** 2026-07-25 15:50 IST

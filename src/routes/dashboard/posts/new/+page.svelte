@@ -33,7 +33,7 @@
 
 <div style="background:var(--color-bg);min-height:700px;position:relative">
 	<nav style="border-bottom:3px solid var(--color-accent)">
-		<div class="container" style="display:flex;align-items:center;gap:16px;padding:12px 40px">
+		<div class="container-wide" style="display:flex;align-items:center;gap:16px;padding:12px 40px">
 			<a
 				href={resolve('/dashboard')}
 				style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--color-neutral-500);text-decoration:none;margin-right:auto"

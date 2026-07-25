@@ -9,7 +9,7 @@
 	<title>Settings · {pub?.name ?? 'Settings'}</title>
 </svelte:head>
 
-<div class="container" style="padding:40px">
+<div class="container-wide" style="padding:40px">
 	<div style="max-width:520px">
 		<h2 style="font-size:28px;margin:0 0 32px;letter-spacing:-0.02em">Settings</h2>
 
