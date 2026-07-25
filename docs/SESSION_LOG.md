@@ -2,6 +2,39 @@
 
 ---
 
+## Hotfix 14 — Branded HTML template for transactional emails
+
+**Date & Time (IST):** 2026-07-26 01:40 IST
+**Status:** Completed
+**Branch:** fix/branded-transactional-emails
+
+### What We Built
+
+All three transactional emails (sign-in link, subscribe confirmation, admin invite) were plain unstyled `<p><a>` tags with no branding. They now share one inline-styled, table-based HTML template (accent-bordered header with the publication name, a heading, short body copy, and a styled button) matching the site's Modernist design system. The subscribe confirmation copy specifically was rewritten to be warm, short, and welcoming, per direct ask — "Welcome to {pub name}" / "Just one more step — confirm your email and you're in." All three headings now embed the publication's name dynamically.
+
+### How We Built It
+
+- `src/lib/server/mail.ts`: added `renderEmailHtml(pubName, heading, body, ctaText, ctaUrl)` — inline CSS only and `<table>`-based layout throughout, since email clients don't load stylesheets or support flex/grid.
+- `sendEmail()` now takes a `buildContent(pubName) => { heading, body, ctaText }` callback instead of a raw HTML string, so the publication name (already fetched once inside `sendEmail` to check `resendApiKey`/`resendFromEmail`) can be injected into the copy without a second DB query.
+- `sendMagicLinkEmail` and `sendInvitationEmail` keep their existing signatures (`env, to, url`) — only their internal copy-building changed. No caller elsewhere needed touching.
+
+### In Scope
+
+- Shared branded template + rewritten copy for all three existing transactional emails.
+
+### Out of Scope
+
+- The publish→email pipeline (posts emailed to subscribers) doesn't exist yet — the post editor's "Publish" button is still mock data (separate in-progress feature session). Not touched here.
+- No visual screenshot/inbox test of the rendered email in this session (no email-preview tooling available) — verified by reading the generated HTML string logic and existing e2e coverage of the flows that trigger these sends (login, subscribe, invite all pass).
+
+### Breaking Changes
+
+NONE — `sendMagicLinkEmail`/`sendInvitationEmail` signatures unchanged.
+
+### Notes for Future Sessions
+
+- When the post-publish email pipeline is built, it should reuse `renderEmailHtml()` rather than hand-rolling another unstyled template.
+
 ## Hotfix 13 — Switch profile avatar fallback to DiceBear pixel-art, seeded on email
 
 **Date & Time (IST):** 2026-07-26 01:05 IST
