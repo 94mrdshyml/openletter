@@ -6,3 +6,10 @@ export async function loginAsTestWriter(page: Page, email?: string) {
 	const { cookies } = await res.json();
 	await page.context().addCookies(cookies);
 }
+
+export async function loginAsTestReader(page: Page, email: string) {
+	const url = `/api/test/login?email=${encodeURIComponent(email)}&role=reader`;
+	const res = await page.request.get(url);
+	const { cookies } = await res.json();
+	await page.context().addCookies(cookies);
+}

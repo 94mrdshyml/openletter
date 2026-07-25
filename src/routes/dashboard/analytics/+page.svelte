@@ -9,7 +9,7 @@
 	<title>Analytics · {publication.name}</title>
 </svelte:head>
 
-<div class="container" style="padding:40px">
+<div class="container-wide" style="padding:40px">
 	<div
 		style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:2px solid var(--color-divider);margin:0 0 40px"
 	>

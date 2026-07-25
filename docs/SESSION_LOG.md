@@ -2,6 +2,149 @@
 
 ---
 
+## Hotfix 13 — Switch profile avatar fallback to DiceBear pixel-art, seeded on email
+
+**Date & Time (IST):** 2026-07-26 01:05 IST
+**Status:** Completed
+**Branch:** fix/dicebear-pixel-art-avatar
+
+### What We Built
+
+The `/my-profile` fallback avatar (shown when a user hasn't uploaded a picture) now uses DiceBear's **pixel-art** style instead of **initials**, seeded on the user's **email** instead of their display name (so it stays stable even if they change their first/last name later).
+
+### How We Built It
+
+- `src/routes/my-profile/+page.svelte`: avatar URL changed from `https://api.dicebear.com/9.x/initials/svg?seed=<display name>` to `https://api.dicebear.com/10.x/pixel-art/svg?seed=<email>` (version bumped to DiceBear's current 10.x per their docs at the same time). The now-unused `displayName` derived value was removed — nothing else in the page referenced it.
+- Dropped the `border-radius:50%` circle clip on the avatar `<img>` — pixel art is meant to render as a square sprite, not be cropped into a circle.
+- Updated the helper copy under the file input from "generated from your name" to "generated from your email".
+
+### In Scope
+
+- Avatar style + seed swap only.
+
+### Out of Scope
+
+- Nothing else on the page changed. Uploaded avatars (`user.image`) are unaffected — this only touches the fallback shown when no picture is set.
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- Re-confirmed the `(public)/page.svelte.e2e.ts` "shows an inline confirmation after subscribing" flake (first flagged in Hotfix 8) is still present and still pre-existing — reproduced 3/3 in isolation on this branch AND on a clean `git stash` of main. Still unrelated to any nav/profile work; still unfixed; still worth a dedicated session investigating the `use:enhance` hydration race.
+
+---
+
+## Hotfix 12 — Add Log out to the public navbar
+
+**Date & Time (IST):** 2026-07-26 00:20 IST
+**Status:** Completed
+**Branch:** fix/nav-logout-link
+
+### What We Built
+
+Hotfix 11 gave signed-in users "My profile" (and admins "Dashboard") in the public navbar, but no way to log out — `AdminNav` (dashboard-only) had a "Log out" button, but a reader browsing the public site had none. `PublicNav` now shows a "Log out" button alongside "My profile" for any signed-in user.
+
+### How We Built It
+
+- `PublicNav.svelte`: added a `<form method="POST" action="/logout">` + submit button, identical pattern to the one already in `AdminNav.svelte` — no new server code, `/logout` already existed and works for any signed-in user regardless of role.
+
+### In Scope
+
+- "Log out" button in the public navbar for any signed-in user
+- E2E coverage: button visible when signed in / absent when signed out, and a real logout round-trip from the homepage
+
+### Out of Scope
+
+- Nothing else changed in `AdminNav` or elsewhere.
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- Missed in Hotfix 11 — worth double-checking full user-facing surface (not just the specific links asked for) when adding identity-aware nav states in future sessions.
+
+---
+
+## Hotfix 11 — Replace navbar "Subscribe" with My profile / Dashboard / Log in
+
+**Date & Time (IST):** 2026-07-25 23:45 IST
+**Status:** Completed
+**Branch:** fix/nav-profile-dashboard-links
+
+### What We Built
+
+The public navbar's "Subscribe" link (which pointed at `/`, not the subscribe flow, and had no real purpose since the homepage already has its own subscribe form) is replaced with identity-aware links: **Log in** when signed out; **My profile** for any signed-in user; **Dashboard** additionally for admins only. A new `/my-profile` page lets any signed-in user (reader or admin) set their first name, last name, and profile picture. If no picture is set, a DiceBear-generated avatar (initials style, seeded on the user's display name) is shown instead.
+
+### How We Built It
+
+- `src/routes/+layout.server.ts` now also returns a display-safe `user` slice (`firstName`, `lastName`, `name`, `image`, `role`) from `locals.user`, alongside the existing `publication` data — this flows to every page, so `PublicNav` can read it client-side via `page.data.user`.
+- `PublicNav.svelte` conditionally renders the three link states off `page.data.user`.
+- `src/routes/my-profile/+page.server.ts` — `load` redirects to `/login` if `!locals.user`; `save` action updates `user.firstName`/`lastName` and, if a file was submitted, uploads it via the **already-existing but previously unused** `uploadAvatar()` helper in `src/lib/server/media.ts` and stores the resulting R2 URL in `user.image`. No schema migration needed — `user.firstName`, `user.lastName`, and `user.image` already existed as columns (the last two are Better Auth's own default fields).
+- `src/routes/my-profile/+page.svelte` mirrors the existing `/login` standalone-card layout (accent top bar, centered card, no nav) rather than reusing `PublicNav`/`AdminNav`, since the page must work for both readers and admins. DiceBear URL: `https://api.dicebear.com/9.x/initials/svg?seed=<display name>`.
+- Extended `GET /api/test/login` (test-only, `ENABLE_TEST_AUTH` gated) to accept an optional `role=reader` query param, defaulting to `admin` to preserve every existing caller's behavior unchanged. Added `loginAsTestReader()` next to `loginAsTestWriter()` in `src/lib/test/auth.ts` — needed because the new Dashboard-link gating is genuinely role-dependent and the existing helper always minted admin sessions, which made it impossible to write a real e2e test for the reader (non-admin) nav state.
+
+### In Scope
+
+- Navbar link replacement (Log in / My profile / Dashboard)
+- `/my-profile` page: view + edit first name, last name, avatar (R2 upload) or DiceBear fallback
+- Role-gated Dashboard link (admin only); My profile link for any signed-in user
+- E2E coverage: anonymous/reader/admin nav states, `/my-profile` navigation, unauthenticated redirect, real save round-trip
+
+### Out of Scope
+
+- No change to `AdminNav` (dashboard's own nav) — it already has its own "Log out" and wasn't part of this ask.
+- No avatar shown inside the navbar itself — only text links, matching the existing "Subscribe" link's styling; avatar display is confined to `/my-profile`.
+
+### Breaking Changes
+
+NONE — `resendApiKey` handling, D1 schema, and env vars are all untouched. No migration was needed.
+
+### Notes for Future Sessions
+
+- `uploadAvatar()` in `media.ts` existed before this session but was dead code (nothing called it) — it's now wired up via `/my-profile`.
+- **Correction to a lesson from Hotfix 8/9:** local `bun run lint` on this Windows checkout fails on ~101 files regardless of branch (confirmed via `git stash`), which looked like pre-existing CRLF drift — but that local signal is unreliable and buries real failures. CI (Linux, LF-normalized) only flagged the one file this session actually got wrong: a line in `my-profile/+page.svelte` exceeding `printWidth`. Fixed with `bunx prettier --write`. Lesson: don't trust local `bun run lint` results on Windows to judge whether a change is lint-clean — check the CI run instead.
+- No `gstack`/browser-screenshot tool was available in this session's environment. Manual QA was done via direct HTTP requests against the real built Worker (`bun run preview`, port 4173) simulating anonymous/reader/admin sessions via the test-login endpoint, plus the full 41-test Playwright (real Chromium) suite passing — not a visual screenshot. If a future session has screenshot tooling available, a quick visual pass of `/my-profile` (especially the DiceBear fallback avatar rendering) would be worthwhile.
+- Local `wrangler dev`/`preview` was flaky in this sandboxed shell — it would serve one request then exit, and two overlapping instances from retries silently fought over port 4173. Fixed by verifying no stray `workerd`/`wrangler` processes were running (PowerShell `Get-CimInstance Win32_Process` filtered by worktree path) before each attempt, and by running the full curl-based QA sequence as one shell command so the background server process wasn't torn down between tool calls.
+
+---
+
+## Hotfix 10 — Revert /welcome to full-viewport hero; fix dashboard nav wrapping
+
+**Date & Time (IST):** 2026-07-25 22:15 IST
+**Status:** Completed
+**Branch:** fix/welcome-hero-and-dashboard-nav-width
+
+### What happened
+
+Two user-reported issues after Hotfix 8 shipped, both regressions from that session's container work:
+
+1. **`/welcome`'s left-aligned-with-nav rebuild was explicitly disliked.** The elements (colors, type, spacing) were fine, but the layout wasn't — user wanted the original centered full-viewport hero back (no nav, no footer divider), just logo/name/tagline/form centered in the middle of the screen.
+2. **`AdminNav`'s links wrapped mid-text** once capped at Hotfix 8's `.container` (860px) — "OpenLetter | Publication Name · Dashboard · Analytics · Posts · Settings · View publication → · Log out" doesn't fit in 860px, so individual flex items got compressed narrow enough that their own text wrapped internally (e.g. "View publication →" breaking across two lines) — screenshotted by the user.
+
+### Fix
+
+- `src/routes/welcome/+page.svelte` reverted to the original PR #16 structure: `min-height:100vh` flex-centered column, no `<PublicNav>`, no footer. `h1` back to 42px centered (was 48px left-aligned). Logo/tagline/subscribe-form-with-email-prefill logic untouched.
+- `src/app.css` gains a third container class, `.container-wide` (`max-width: 1120px`), for dashboard use — public pages keep `.container` (860px) as-is, this doesn't touch them.
+- `AdminNav.svelte`'s inner row switched from `.container` to `.container-wide`, plus `white-space:nowrap` added to every nav item's own style (brand, pub name, each tab, "View publication →", "Log out") so text can never wrap internally again regardless of available width, and `overflow-x:auto` on the row itself as a floor for any viewport narrower than the nav's natural width (graceful horizontal scroll instead of broken wrapping).
+- All 5 dashboard content pages (`dashboard`, `analytics`, `posts`, `posts/new`'s nav, `settings`) switched from `.container` to `.container-wide` too, per the explicit "make the dashboard a little wider" ask — not just the nav.
+- **Two deliberate exceptions, same reasoning as Hotfix 8's settings call:** the post editor's actual writing column (title + body `contenteditable`) stays at `.container` (860px, comfortable prose width) even though its nav above it is now `.container-wide` (1120px) — widening the nav and narrowing the content beneath it is an established pattern in this codebase already (the post page itself does the same: `.container-narrow` article under a `.container` footer). Settings' form fields likewise stay at their existing 520px width, now just centered inside the wider 1120px page.
+
+### Verification
+
+Same worktree-isolation approach as prior hotfixes (another agent had an in-progress branch, `fix/manual-topic-id-and-subscribe-flow`, in the main working directory throughout). Visually verified `/welcome` (desktop 1920px + mobile 375px, no nav/footer, fully centered, confirmed via screenshot) and every dashboard page's nav at 1280/1366/1440/1920px (the exact width range a writer would realistically use) — single-line nav, no wrapping, at all four. `bun run check` (0 errors), `eslint .` (clean), `bun run test:unit` (5 passed), `bun run build` (succeeds), `bun run test:e2e` (33/34 passed — the one failure is the same pre-existing subscribe-confirmation flake documented in Hotfix 8, confirmed unrelated there via `git stash` against clean `main`; not re-verified again this session since the root cause and evidence are already on record).
+
+### Notes for Future Sessions
+
+- **Three container classes now exist:** `.container` (860px, public pages + editor's writing column + settings' form), `.container-narrow` (680px, post-page reading content only), `.container-wide` (1120px, dashboard chrome and content generally). Pick based on what the content actually is — reading text, general page content, or a nav/toolbar row with many items — not by copying whichever one is nearby.
+- **The subscribe-confirmation e2e flake is still unresolved** (see Hotfix 8's notes) — not touched again this session, still worth a dedicated investigation.
+- If a future session adds more items to `AdminNav` (another tab, another action), re-check nav width at 1280px specifically — that's the narrowest realistic desktop width this was verified against, and the floor before `overflow-x:auto` kicks in.
+
+---
+
 ## Session 14 — Real post editor (Tiptap, publish loop, subscribe-wall, embeds, SEO)
 
 **Date & Time (IST):** 2026-07-25 22:30 IST

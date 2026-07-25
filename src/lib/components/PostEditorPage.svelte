@@ -47,7 +47,7 @@
 	<form method="POST" enctype="multipart/form-data">
 		<nav style="border-bottom:3px solid var(--color-accent)">
 			<div
-				class="container"
+				class="container-wide"
 				style="display:flex;align-items:center;gap:16px;padding:12px 40px;flex-wrap:wrap"
 			>
 				<a
