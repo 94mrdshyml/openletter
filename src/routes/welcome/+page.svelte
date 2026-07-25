@@ -15,7 +15,7 @@
 <div style="min-height:100vh;display:flex;flex-direction:column">
 	<div style="height:3px;background:var(--color-accent)"></div>
 	<div
-		style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 90px;text-align:center"
+		style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px clamp(20px, 8vw, 90px);text-align:center"
 	>
 		{#if logoUrl}
 			<img src={logoUrl} alt="" style="width:72px;height:72px;object-fit:cover;margin:0 0 24px" />

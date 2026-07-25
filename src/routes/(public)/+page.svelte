@@ -13,7 +13,7 @@
 	<title>{name}</title>
 </svelte:head>
 
-<div style="padding:56px 90px 48px">
+<div style="padding:56px clamp(20px, 8vw, 90px) 48px">
 	<h1 style="font-size:48px;line-height:1.05;margin:0 0 12px;letter-spacing:-0.025em">
 		{name}
 	</h1>
@@ -62,7 +62,7 @@
 	{/if}
 </div>
 <div
-	style="padding:32px 90px;border-top:2px solid var(--color-divider);font-size:13px;color:var(--color-neutral-500)"
+	style="padding:32px clamp(20px, 8vw, 90px);border-top:2px solid var(--color-divider);font-size:13px;color:var(--color-neutral-500)"
 >
 	{name} · Powered by OpenLetter
 </div>

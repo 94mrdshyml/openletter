@@ -6,7 +6,7 @@
 </script>
 
 <nav
-	style="display:flex;align-items:center;padding:20px 90px;border-bottom:3px solid var(--color-accent)"
+	style="display:flex;align-items:center;padding:20px clamp(20px, 8vw, 90px);border-bottom:3px solid var(--color-accent)"
 >
 	<a
 		href={resolve('/')}
