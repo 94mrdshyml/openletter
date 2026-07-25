@@ -52,7 +52,7 @@ export function createAuth(env: Env, baseURL: string) {
 
 						const pub = await db.query.publication.findFirst();
 						const resendContactId = await syncSubscriberContact(
-							env,
+							pub?.resendApiKey ?? null,
 							user.email,
 							pub?.resendSegmentId ?? null,
 							pub?.resendTopicId ?? null

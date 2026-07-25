@@ -12,7 +12,9 @@ export default async function globalSetup() {
 			email: 'test-admin@example.com',
 			firstName: 'Test',
 			lastName: 'Admin',
-			pubName: 'The Meridian'
+			pubName: 'The Meridian',
+			resendApiKey: 'test_resend_key',
+			resendFromEmail: 'test@example.com'
 		}
 	});
 	if (!res.ok() && res.status() !== 303) {

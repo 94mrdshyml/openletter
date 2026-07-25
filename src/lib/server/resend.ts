@@ -1,8 +1,8 @@
-async function resendFetch(env: Env, path: string, method: string, body?: unknown) {
+async function resendFetch(apiKey: string, path: string, method: string, body?: unknown) {
 	const res = await fetch(`https://api.resend.com${path}`, {
 		method,
 		headers: {
-			Authorization: `Bearer ${env.RESEND_API_KEY}`,
+			Authorization: `Bearer ${apiKey}`,
 			'Content-Type': 'application/json'
 		},
 		body: body ? JSON.stringify(body) : undefined
@@ -14,22 +14,17 @@ async function resendFetch(env: Env, path: string, method: string, body?: unknow
 // Segments (internal grouping for targeting sends) and Topics (reader-facing
 // preference categories) are Resend's post-Audiences contact model — see
 // CLAUDE.md's Known Gotchas. Never use the deprecated /audiences endpoint.
+//
+// The API key and Segment id are writer-supplied (via /setup, then editable
+// in dashboard/settings) and stored on the publication row — not env vars,
+// not auto-created. A Resend account's Segments are capped by plan and
+// shared account-wide across every project on it, not scoped per-app, so
+// auto-creating one collided with that cap in practice. The Topic has no
+// such cap, so it's still auto-created once, during /setup.
 
-export async function createSegment(env: Env, name: string): Promise<string | null> {
-	if (!env.RESEND_API_KEY) return null;
+export async function createTopic(apiKey: string, name: string): Promise<string | null> {
 	try {
-		const segment = await resendFetch(env, '/segments', 'POST', { name });
-		return segment.id;
-	} catch {
-		console.error('Failed to create Resend segment');
-		return null;
-	}
-}
-
-export async function createTopic(env: Env, name: string): Promise<string | null> {
-	if (!env.RESEND_API_KEY) return null;
-	try {
-		const topic = await resendFetch(env, '/topics', 'POST', {
+		const topic = await resendFetch(apiKey, '/topics', 'POST', {
 			name,
 			default_subscription: 'opt_in'
 		});
@@ -45,14 +40,14 @@ export async function createTopic(env: Env, name: string): Promise<string | null
 // pattern as mail.ts: a Resend outage must never block a reader's
 // subscribe flow, so failures are swallowed and logged generically.
 export async function syncSubscriberContact(
-	env: Env,
+	apiKey: string | null,
 	email: string,
 	segmentId: string | null,
 	topicId: string | null
 ): Promise<string | null> {
-	if (!env.RESEND_API_KEY || !segmentId || !topicId) return null;
+	if (!apiKey || !segmentId || !topicId) return null;
 	try {
-		const contact = await resendFetch(env, '/contacts', 'POST', {
+		const contact = await resendFetch(apiKey, '/contacts', 'POST', {
 			email,
 			segments: [{ id: segmentId }],
 			topics: [{ id: topicId, subscription: 'opt_in' }]
