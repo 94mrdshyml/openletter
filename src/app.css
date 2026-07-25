@@ -166,6 +166,10 @@ figcaption {
 	max-width: 680px;
 	margin: 0 auto;
 }
+.container-wide {
+	max-width: 1120px;
+	margin: 0 auto;
+}
 
 .btn {
 	display: inline-flex;
