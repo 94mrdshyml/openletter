@@ -2,6 +2,39 @@
 
 ---
 
+## Hotfix 12 — Add Log out to the public navbar
+
+**Date & Time (IST):** 2026-07-26 00:20 IST
+**Status:** Completed
+**Branch:** fix/nav-logout-link
+
+### What We Built
+
+Hotfix 11 gave signed-in users "My profile" (and admins "Dashboard") in the public navbar, but no way to log out — `AdminNav` (dashboard-only) had a "Log out" button, but a reader browsing the public site had none. `PublicNav` now shows a "Log out" button alongside "My profile" for any signed-in user.
+
+### How We Built It
+
+- `PublicNav.svelte`: added a `<form method="POST" action="/logout">` + submit button, identical pattern to the one already in `AdminNav.svelte` — no new server code, `/logout` already existed and works for any signed-in user regardless of role.
+
+### In Scope
+
+- "Log out" button in the public navbar for any signed-in user
+- E2E coverage: button visible when signed in / absent when signed out, and a real logout round-trip from the homepage
+
+### Out of Scope
+
+- Nothing else changed in `AdminNav` or elsewhere.
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- Missed in Hotfix 11 — worth double-checking full user-facing surface (not just the specific links asked for) when adding identity-aware nav states in future sessions.
+
+---
+
 ## Hotfix 11 — Replace navbar "Subscribe" with My profile / Dashboard / Log in
 
 **Date & Time (IST):** 2026-07-25 23:45 IST
