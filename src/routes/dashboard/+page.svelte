@@ -11,7 +11,7 @@
 	<title>Dashboard · {publication.name}</title>
 </svelte:head>
 
-<div style="padding:40px 40px 48px;max-width:780px">
+<div class="container" style="padding:40px 40px 48px">
 	<div style="display:flex;align-items:flex-end;justify-content:space-between;margin:0 0 40px">
 		<div>
 			<div

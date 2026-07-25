@@ -32,33 +32,33 @@
 </svelte:head>
 
 <div style="background:var(--color-bg);min-height:700px;position:relative">
-	<nav
-		style="display:flex;align-items:center;gap:16px;padding:12px 40px;border-bottom:3px solid var(--color-accent)"
-	>
-		<a
-			href={resolve('/dashboard')}
-			style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--color-neutral-500);text-decoration:none;margin-right:auto"
-		>
-			<BackIcon />
-			Dashboard
-		</a>
-		<span style="font-size:12px;color:var(--color-neutral-400)">Draft saved</span>
-		<button
-			type="button"
-			class="btn btn-secondary"
-			style="padding:8px 16px;font-size:13px;min-height:36px">Save draft</button
-		>
-		<button
-			type="button"
-			class="btn btn-primary"
-			style="padding:8px 16px;font-size:13px;min-height:36px"
-			onclick={() => (showPublishDialog = true)}
-		>
-			Publish
-		</button>
+	<nav style="border-bottom:3px solid var(--color-accent)">
+		<div class="container" style="display:flex;align-items:center;gap:16px;padding:12px 40px">
+			<a
+				href={resolve('/dashboard')}
+				style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--color-neutral-500);text-decoration:none;margin-right:auto"
+			>
+				<BackIcon />
+				Dashboard
+			</a>
+			<span style="font-size:12px;color:var(--color-neutral-400)">Draft saved</span>
+			<button
+				type="button"
+				class="btn btn-secondary"
+				style="padding:8px 16px;font-size:13px;min-height:36px">Save draft</button
+			>
+			<button
+				type="button"
+				class="btn btn-primary"
+				style="padding:8px 16px;font-size:13px;min-height:36px"
+				onclick={() => (showPublishDialog = true)}
+			>
+				Publish
+			</button>
+		</div>
 	</nav>
 
-	<div style="padding:48px 40px;max-width:680px;margin:0 auto">
+	<div class="container" style="padding:48px 40px">
 		<div
 			style="display:flex;gap:2px;padding:0 0 16px;border-bottom:1px solid var(--color-divider);margin:0 0 32px"
 		>
