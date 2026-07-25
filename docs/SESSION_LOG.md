@@ -2,6 +2,38 @@
 
 ---
 
+## Hotfix 7 — Recreate the Resend Topic when the API key changes
+
+**Date & Time (IST):** 2026-07-25 21:15 IST
+**Status:** Completed
+**Branch:** fix/settings-recreates-topic-on-key-change
+
+### What happened
+
+User-reported immediately after Hotfix 6 deployed: filled in the new dedicated Resend account's API key and Segment id via `dashboard/settings`, but there was no Topic id field to fill in, and the stale one already on the row (Hotfix 4's backfill, pointing at the old shared account) would never get replaced. Hotfix 6's design only auto-creates a Topic inside `/setup`'s one-time action — that only helps a brand-new instance. Prod had already run `/setup` years (well, hours) before this redesign existed, so there was no code path left that could ever create a Topic on the _new_ account for an _already-set-up_ instance. A Topic belongs to whichever Resend account issued it, so the leftover id would silently fail the moment a contact sync tried to use it against the new key.
+
+### Fix
+
+`dashboard/settings`'s `save` action now recreates the Topic (`createTopic`, same helper `/setup` uses) whenever a new API key is actually submitted — Topics aren't capped by Resend's plan the way Segments are, so recreating on every key change is cheap and doesn't reintroduce the collision problem Hotfix 6 was fixing. If no new key is submitted, the existing `resendTopicId` is left untouched. No new form field needed — this is deliberately invisible to the writer, matching the same "Topic just works" pattern `/setup` already established.
+
+### In Scope
+
+- `dashboard/settings/+page.server.ts`'s `save` action recreates the Topic on API key change
+
+### Out of Scope
+
+- No UI feedback distinguishing "topic recreated" from "topic unchanged" — the existing generic "Saved." message covers both, matching how every other field on this form already behaves
+
+### Breaking Changes
+
+NONE — additive fix to Hotfix 6's own gap, no schema change.
+
+### Notes for Future Sessions
+
+- This closes the loop Hotfix 6 left open for already-set-up instances migrating Resend accounts. A brand-new instance still gets its Topic created once in `/setup`; an existing instance gets a fresh one the moment it saves a new key in Settings. Either way, the writer never manually handles a Topic id.
+
+---
+
 ## Hotfix 6 — Resend config moves from auto-created/env-var to writer-supplied in D1
 
 **Date & Time (IST):** 2026-07-25 18:40 IST
