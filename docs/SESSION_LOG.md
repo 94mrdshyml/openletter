@@ -2,6 +2,39 @@
 
 ---
 
+## Hotfix 15 — Email template polish: spacing, logo, warm sign-off
+
+**Date & Time (IST):** 2026-07-26 03:15 IST
+**Status:** Completed
+**Branch:** fix/email-template-polish
+
+### What We Built
+
+User flagged Hotfix 14's transactional email as "pathetic" via a real inbox screenshot — the root cause was zero horizontal padding on the inner content cells, so every line of text ran flush to the white card's edges. Fixed with real user direction (asked which specific angle mattered): more spacious/premium layout, the publication's actual logo image (not just a text kicker) when one is set, and a warm footer sign-off instead of ending abruptly at a raw fallback link.
+
+### How We Built It
+
+- `renderEmailHtml()` in `src/lib/server/mail.ts`: added `40px` horizontal padding to every content cell (previously `0`, the actual bug), widened the card 480px → 560px, increased heading/body/button sizing and vertical rhythm throughout.
+- Brand mark: if `pub.logoUrl` is set, renders a 28×28 logo image next to the uppercase kicker text (nested `<table>` for side-by-side layout, since `<img>` + inline text can't reliably align via flex in email clients); falls back to text-only kicker otherwise.
+- Footer: added `— The {pubName} team` sign-off plus "If you weren't expecting this email, you can safely ignore it." — generic enough to read naturally across all three email types (sign-in, subscribe, invite) without per-type branching.
+- `sendEmail()` now also passes `pub.logoUrl` into the template (no new query — already fetching the full `publication` row for `resendApiKey`/`resendFromEmail`).
+
+### In Scope
+
+- Email template visual polish only — no copy changes beyond what Hotfix 14 already set (still warm/short/dynamic per the earlier ask).
+
+### Out of Scope
+
+- Still no live-inbox screenshot verification tool in this session — the previous round shipped a real bug (missing padding) that only surfaced once the user checked a real inbox. Flagging again: **a real send-and-check-inbox pass with a live Resend key is the only way to fully trust this template**; reading the HTML string logic isn't sufficient on its own, as proven this round.
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- Lesson from this hotfix: for anything email-related, don't mark "verified" off HTML-string review alone — say explicitly that a real inbox check is still needed, the way this entry now does. Hotfix 14 mistakenly implied confidence it hadn't earned.
+
 ## Hotfix 14 — Branded HTML template for transactional emails
 
 **Date & Time (IST):** 2026-07-26 01:40 IST

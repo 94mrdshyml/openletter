@@ -5,60 +5,88 @@ import { getDb } from './db';
 // layout uses <table> rather than flex/grid.
 function renderEmailHtml(
 	pubName: string,
+	logoUrl: string | null,
 	heading: string,
 	body: string,
 	ctaText: string,
 	ctaUrl: string
 ) {
+	const brandMark = logoUrl
+		? `<table role="presentation" cellpadding="0" cellspacing="0">
+				<tr>
+					<td style="padding-right:10px">
+						<img
+							src="${logoUrl}"
+							alt=""
+							width="28"
+							height="28"
+							style="display:block;width:28px;height:28px;object-fit:cover"
+						/>
+					</td>
+					<td style="font-size:13px;letter-spacing:0.1em;text-transform:uppercase;color:#ec3013;font-weight:800">
+						${pubName}
+					</td>
+				</tr>
+			</table>`
+		: `<span style="font-size:13px;letter-spacing:0.1em;text-transform:uppercase;color:#ec3013;font-weight:800"
+				>${pubName}</span
+			>`;
+
 	return `<!doctype html>
 <html>
 	<body style="margin:0;padding:0;background:#f3f2f2;font-family:Archivo,Helvetica,Arial,sans-serif;color:#201e1d">
 		<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f2f2">
 			<tr>
-				<td align="center" style="padding:40px 20px">
+				<td align="center" style="padding:56px 24px">
 					<table
 						role="presentation"
-						width="480"
+						width="560"
 						cellpadding="0"
 						cellspacing="0"
-						style="max-width:480px;width:100%;background:#ffffff"
+						style="max-width:560px;width:100%;background:#ffffff"
 					>
 						<tr>
-							<td style="padding:0 0 20px;border-bottom:3px solid #ec3013">
-								<span
-									style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#ec3013;font-weight:800"
-									>${pubName}</span
-								>
+							<td style="padding:36px 40px 24px;border-bottom:3px solid #ec3013">
+								${brandMark}
 							</td>
 						</tr>
 						<tr>
-							<td style="padding:32px 0 12px">
-								<h1 style="margin:0;font-size:24px;line-height:1.25;letter-spacing:-0.02em;font-weight:800">
+							<td style="padding:40px 40px 16px">
+								<h1 style="margin:0;font-size:28px;line-height:1.3;letter-spacing:-0.02em;font-weight:800">
 									${heading}
 								</h1>
 							</td>
 						</tr>
 						<tr>
-							<td style="padding:0 0 28px">
-								<p style="margin:0;font-size:15px;line-height:1.6;color:#444141">${body}</p>
+							<td style="padding:0 40px 36px">
+								<p style="margin:0;font-size:16px;line-height:1.7;color:#444141">${body}</p>
 							</td>
 						</tr>
 						<tr>
-							<td style="padding:0 0 32px">
+							<td style="padding:0 40px 44px">
 								<a
 									href="${ctaUrl}"
-									style="display:inline-block;background:#ec3013;color:#f3f2f2;font-weight:800;font-size:14px;text-decoration:none;padding:12px 28px"
+									style="display:inline-block;background:#ec3013;color:#f3f2f2;font-weight:800;font-size:15px;text-decoration:none;padding:14px 32px"
 									>${ctaText}</a
 								>
 							</td>
 						</tr>
 						<tr>
-							<td style="padding:20px 0 0;border-top:1px solid #d7d3d3">
-								<p style="margin:0;font-size:12px;color:#9b9797;line-height:1.5">
+							<td style="padding:24px 40px 0;border-top:1px solid #d7d3d3">
+								<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#605d5d">
+									— The ${pubName} team
+								</p>
+								<p style="margin:0 0 20px;font-size:12px;line-height:1.5;color:#9b9797">
+									If you weren't expecting this email, you can safely ignore it.
+								</p>
+								<p style="margin:0;font-size:12px;line-height:1.5;color:#9b9797">
 									If the button doesn't work, copy and paste this link:<br />
 									<a href="${ctaUrl}" style="color:#9b9797">${ctaUrl}</a>
 								</p>
 							</td>
+						</tr>
+						<tr>
+							<td style="height:40px"></td>
 						</tr>
 					</table>
 				</td>
@@ -80,7 +108,7 @@ async function sendEmail(
 	if (!pub?.resendApiKey || !pub?.resendFromEmail) return;
 
 	const { heading, body, ctaText } = buildContent(pub.name);
-	const html = renderEmailHtml(pub.name, heading, body, ctaText, ctaUrl);
+	const html = renderEmailHtml(pub.name, pub.logoUrl, heading, body, ctaText, ctaUrl);
 
 	try {
 		const res = await fetch('https://api.resend.com/emails', {
