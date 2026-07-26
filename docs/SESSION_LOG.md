@@ -2,6 +2,72 @@
 
 ---
 
+## Hotfix 15 — Email template polish: spacing, logo, warm sign-off
+
+**Date & Time (IST):** 2026-07-26 03:15 IST
+**Status:** Completed
+**Branch:** fix/email-template-polish
+
+### What We Built
+
+User flagged Hotfix 14's transactional email as "pathetic" via a real inbox screenshot — the root cause was zero horizontal padding on the inner content cells, so every line of text ran flush to the white card's edges. Fixed with real user direction (asked which specific angle mattered): more spacious/premium layout, the publication's actual logo image (not just a text kicker) when one is set, and a warm footer sign-off instead of ending abruptly at a raw fallback link.
+
+### How We Built It
+
+- `renderEmailHtml()` in `src/lib/server/mail.ts`: added `40px` horizontal padding to every content cell (previously `0`, the actual bug), widened the card 480px → 560px, increased heading/body/button sizing and vertical rhythm throughout.
+- Brand mark: if `pub.logoUrl` is set, renders a 28×28 logo image next to the uppercase kicker text (nested `<table>` for side-by-side layout, since `<img>` + inline text can't reliably align via flex in email clients); falls back to text-only kicker otherwise.
+- Footer: added `— The {pubName} team` sign-off plus "If you weren't expecting this email, you can safely ignore it." — generic enough to read naturally across all three email types (sign-in, subscribe, invite) without per-type branching.
+- `sendEmail()` now also passes `pub.logoUrl` into the template (no new query — already fetching the full `publication` row for `resendApiKey`/`resendFromEmail`).
+
+### In Scope
+
+- Email template visual polish only — no copy changes beyond what Hotfix 14 already set (still warm/short/dynamic per the earlier ask).
+
+### Out of Scope
+
+- Still no live-inbox screenshot verification tool in this session — the previous round shipped a real bug (missing padding) that only surfaced once the user checked a real inbox. Flagging again: **a real send-and-check-inbox pass with a live Resend key is the only way to fully trust this template**; reading the HTML string logic isn't sufficient on its own, as proven this round.
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- Lesson from this hotfix: for anything email-related, don't mark "verified" off HTML-string review alone — say explicitly that a real inbox check is still needed, the way this entry now does. Hotfix 14 mistakenly implied confidence it hadn't earned.
+
+## Hotfix 14 — Branded HTML template for transactional emails
+
+**Date & Time (IST):** 2026-07-26 01:40 IST
+**Status:** Completed
+**Branch:** fix/branded-transactional-emails
+
+### What We Built
+
+All three transactional emails (sign-in link, subscribe confirmation, admin invite) were plain unstyled `<p><a>` tags with no branding. They now share one inline-styled, table-based HTML template (accent-bordered header with the publication name, a heading, short body copy, and a styled button) matching the site's Modernist design system. The subscribe confirmation copy specifically was rewritten to be warm, short, and welcoming, per direct ask — "Welcome to {pub name}" / "Just one more step — confirm your email and you're in." All three headings now embed the publication's name dynamically.
+
+### How We Built It
+
+- `src/lib/server/mail.ts`: added `renderEmailHtml(pubName, heading, body, ctaText, ctaUrl)` — inline CSS only and `<table>`-based layout throughout, since email clients don't load stylesheets or support flex/grid.
+- `sendEmail()` now takes a `buildContent(pubName) => { heading, body, ctaText }` callback instead of a raw HTML string, so the publication name (already fetched once inside `sendEmail` to check `resendApiKey`/`resendFromEmail`) can be injected into the copy without a second DB query.
+- `sendMagicLinkEmail` and `sendInvitationEmail` keep their existing signatures (`env, to, url`) — only their internal copy-building changed. No caller elsewhere needed touching.
+
+### In Scope
+
+- Shared branded template + rewritten copy for all three existing transactional emails.
+
+### Out of Scope
+
+- The publish→email pipeline (posts emailed to subscribers) doesn't exist yet — the post editor's "Publish" button is still mock data (separate in-progress feature session). Not touched here.
+- No visual screenshot/inbox test of the rendered email in this session (no email-preview tooling available) — verified by reading the generated HTML string logic and existing e2e coverage of the flows that trigger these sends (login, subscribe, invite all pass).
+
+### Breaking Changes
+
+NONE — `sendMagicLinkEmail`/`sendInvitationEmail` signatures unchanged.
+
+### Notes for Future Sessions
+
+- When the post-publish email pipeline is built, it should reuse `renderEmailHtml()` rather than hand-rolling another unstyled template.
+
 ## Hotfix 13 — Switch profile avatar fallback to DiceBear pixel-art, seeded on email
 
 **Date & Time (IST):** 2026-07-26 01:05 IST
