@@ -1,3 +1,4 @@
+import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
@@ -7,6 +8,16 @@ import { uploadLogo } from '$lib/server/media';
 import { slugify } from '$lib/slug';
 
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Every action authorizes itself rather than trusting the /dashboard gate in
+// hooks.server.ts. The gate is one refactor away from being wrong, and these
+// two actions grant admin and rewrite the Resend credentials.
+function requireAdmin(locals: App.Locals) {
+	if (!locals.user || locals.user.role !== 'admin') {
+		error(403, 'Forbidden');
+	}
+	return locals.user;
+}
 
 export const load: PageServerLoad = async ({ platform }) => {
 	const db = getDb(platform!.env.DB);
@@ -21,7 +32,8 @@ export const load: PageServerLoad = async ({ platform }) => {
 };
 
 export const actions: Actions = {
-	save: async ({ request, platform }) => {
+	save: async ({ request, platform, locals }) => {
+		requireAdmin(locals);
 		const env = platform!.env;
 		const db = getDb(env.DB);
 		const data = await request.formData();
@@ -71,6 +83,7 @@ export const actions: Actions = {
 		return { saved: true };
 	},
 	invite: async ({ request, platform, url, locals }) => {
+		const admin = requireAdmin(locals);
 		const env = platform!.env;
 		const db = getDb(env.DB);
 		const data = await request.formData();
@@ -79,7 +92,7 @@ export const actions: Actions = {
 		const token = crypto.randomUUID();
 		await db.insert(invitation).values({
 			email,
-			invitedByUserId: locals.user!.id,
+			invitedByUserId: admin.id,
 			token,
 			expiresAt: new Date(Date.now() + INVITATION_EXPIRY_MS)
 		});

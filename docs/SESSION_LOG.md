@@ -2,6 +2,104 @@
 
 ---
 
+## Hotfix 16 — Fix critical privilege escalation (F-01) and test-auth bypass (F-02)
+
+**Date & Time (IST):** 2026-07-26 16:38 IST
+**Status:** Completed
+**Branch:** claude/security-vuln-scan-report-62u4ey
+
+**Auth-affecting hotfix — per the Hotfix Protocol in `CLAUDE.md`, this must be merged to main before any in-progress feature session merges.**
+
+### What We Built
+
+Remediation of the two most severe findings from Session 14's audit.
+
+**F-01 (Critical) — reader→admin privilege escalation.** `dashboard/+layout.server.ts` guarded page renders only; SvelteKit runs form actions _before_ load functions, so `/dashboard/settings`'s `save` and `invite` actions were reachable by anyone holding any session. A member of the public could subscribe on the homepage to get a `reader` session, POST to `?/invite` to issue themselves an admin invitation, accept it, and become an admin — or use `?/save` to repoint `resendApiKey`/`resendFromEmail` at their own Resend account.
+
+**F-02 (High) — test-only login bypass shipped in the production bundle**, gated only by a runtime env var and defaulting to `role=admin`.
+
+### How We Built It
+
+- `src/hooks.server.ts`: added a `/dashboard` gate after session hydration. Hooks run before actions, which is the only layer that can cover both page loads and actions. Kept `redirect(303, '/login')` rather than a 403 so existing UX and e2e expectations are unchanged.
+- `src/routes/dashboard/settings/+page.server.ts`: added a local `requireAdmin(locals)` and called it at the top of both actions — the hook gate is one refactor away from being wrong, so the actions no longer depend on it. Removed the `locals.user!` non-null assertion in `invite`, which was where the type system had been told to stop asking the question that mattered.
+- `src/routes/api/test/login/+server.ts`: gated on a **build-time** `VITE_ENABLE_TEST_AUTH` flag in addition to the runtime `ENABLE_TEST_AUTH`, and flipped the default role from `admin` to `reader`. `src/lib/test/auth.ts` now passes `role=admin` explicitly.
+- Both workflows: `VITE_ENABLE_TEST_AUTH: 'true'` set **only** on the E2E step, never on the Build step or anywhere in the deploy job.
+- Five negative-path e2e tests in `src/routes/dashboard/settings/page.svelte.e2e.ts` that POST directly to the actions.
+
+### In Scope
+
+- F-01 and F-02 only.
+
+### Out of Scope
+
+- **The other 16 audit findings remain open**, including F-03 (no rate limiting on magic-link sending), F-04 (unclaimed `/setup` takeover window), and F-05 (SVG stored XSS). See `docs/SECURITY_AUDIT.md`.
+- **Production data audit not performed.** Read-only queries to check for unexpected `role = 'admin'` rows and pending `invitation` rows were handed to the user to run; per the Database Safety rules nothing was executed against remote D1 from this session.
+
+### Breaking Changes
+
+- **`/api/test/login` now requires `VITE_ENABLE_TEST_AUTH=true` at BUILD time, not just `ENABLE_TEST_AUTH=true` at runtime.** Running e2e tests locally now needs `VITE_ENABLE_TEST_AUTH=true bun run test:e2e`. Documented in `.dev.vars.example`. CI updated.
+- **`/api/test/login` defaults to `role=reader`** instead of `admin`. Any caller wanting an admin session must pass `role=admin`.
+
+### Notes for Future Sessions
+
+- **The audit report's own F-02 advice was wrong and is corrected in-place.** It recommended gating on `$app/environment`'s `dev`; that would have broken every e2e test, because `playwright.config.ts` runs `bun run build && bun run preview` — tests hit a **production** build where `dev` is `false`. Build-time Vite flags are the tool for this, not `dev`.
+- **A redirect thrown from hooks during a form-action POST returns HTTP 200 carrying SvelteKit's action-result envelope** (`{"type":"redirect","status":303,"location":"/login"}`), not a bare 303 — a plain GET does get a real 303. The first version of these tests asserted `status === 303` and failed against working code. Assert on the envelope. Also note Playwright's `maxRedirects: 0` throws rather than returning the 3xx, so it is not a way to observe this.
+- **The new tests were verified to fail against the vulnerable code** (fix stashed, 4 of 5 failed). The fifth, `a reader cannot load the settings page`, passes either way because the layout guard always covered page renders — that asymmetry _is_ the bug, and it is why GET-only tests missed this for so long. Any future auth test must exercise POST.
+- **`bun run check` reports ~1430 spurious errors if run after a build**, because svelte-check scans `.svelte-kit/output`. CI is unaffected (it runs `check` before any build). If checking locally after a build, `rm -rf .svelte-kit/output` first. `check` also needs `.dev.vars` present or `Env` won't include `BETTER_AUTH_SECRET`/`ENABLE_TEST_AUTH`.
+- `dashboard/+layout.server.ts`'s guard was deliberately left in place as defence in depth even though the hook now makes it redundant.
+- `requireAdmin` is local to the settings route. When a second dashboard route gains actions, promote it to a shared server helper rather than copy-pasting.
+- No new secrets. `VITE_ENABLE_TEST_AUTH` is a build-time CI variable, not a secret, and must never be set for a production build.
+
+---
+
+## Session 14 — Security Audit (review only, no remediation)
+
+**Date & Time (IST):** 2026-07-26 15:42 IST
+**Status:** Completed (audit delivered) — **all 18 findings remain unremediated in code**
+**Branch:** claude/security-vuln-scan-report-62u4ey
+
+### What We Built
+
+A full manual security review of the repository at `34a0e20`, delivered as `docs/SECURITY_AUDIT.md`. 18 findings, ranked by severity with estimated CVSS, each documenting the vulnerability, its exploit path, its impact, and a concrete fix with code.
+
+**The headline finding is Critical and currently live in production:** the form actions on `/dashboard/settings` have no authorization check. `dashboard/+layout.server.ts` guards page rendering only — SvelteKit runs form actions _before_ any `load` function, so that redirect never fires in time. Any member of the public can subscribe via the homepage to obtain a `reader` session, POST to `/dashboard/settings?/invite` to issue themselves an admin invitation, accept it, and become an administrator. The same gap lets an unauthorized caller rewrite `resendApiKey`/`resendFromEmail` via `?/save` and redirect the publication's entire email pipeline.
+
+Severity breakdown: 1 Critical, 3 High, 6 Medium, 5 Low, 3 Informational.
+
+### How We Built It
+
+- Read every server-side file in `src/` (all `+page.server.ts`, `+server.ts`, `hooks.server.ts`, `lib/server/*`), plus `wrangler.jsonc`, both CI workflows, the Drizzle schema, and `.dev.vars.example`.
+- **Verified framework behaviour against source rather than assuming it.** The Critical finding rests on a claim about SvelteKit's execution order, so `@sveltejs/kit@2.63.0` was fetched via `npm pack` and read directly: `handle_action_request` is called at line 77 of `src/runtime/server/page/index.js`, `load_data` at line 228. Same method for F-12 — `src/runtime/server/respond.js` shows the CSRF check is gated on `is_form_content_type(request)`, so it does not cover non-form POST endpoints.
+- Traced the full reader→admin escalation chain end to end before rating it, rather than filing "missing auth check" abstractly.
+- Deliberately documented what is _not_ a problem, with evidence: no SQL injection surface (all Drizzle-parameterised), zero `{@html}`/`innerHTML`/`eval` in `src/`, no secrets in git, `ci.yml` correctly uses `pull_request` not `pull_request_target` so fork PRs never receive `BETTER_AUTH_SECRET`, and the `/setup` lock is a genuinely correct atomic claim.
+
+### In Scope
+
+- Static security review and the written report only.
+
+### Out of Scope
+
+- **All remediation.** No application code was changed this session. Every finding is still exploitable.
+- Dynamic testing — no exploit was actually executed against a running instance, local or production. Findings are derived from source reading plus framework-source verification.
+- Dependency CVE scanning beyond a manual version check; `bun audit` was not run (no lockfile-aware audit step exists in CI yet — recommended in the report).
+
+### Breaking Changes
+
+NONE — documentation only.
+
+### Notes for Future Sessions
+
+- **Do F-01 and F-02 before any further feature work.** F-01 is a live full-takeover path on the deployed instance.
+- **When fixing F-01, also audit the data, not just the code.** Check `user` for unexpected `role = 'admin'` rows and purge pending `invitation` rows. Patching the route while leaving an attacker's already-issued invitation valid closes the door with their key already cut.
+- **The root cause is a reusable footgun, not a one-off slip.** `+layout.server.ts` guards do not protect form actions. Every action must authorize itself. `my-profile` and `/setup` happen to do this correctly today; `/dashboard/settings` does not. Proposed for `CLAUDE.md`'s Definition of Done: _every `+page.server.ts` action performs its own authorization; a `load` guard never counts._
+- **The existing E2E auth-protection tests only assert on `GET`.** `CLAUDE.md` requires "unauthenticated users cannot reach the writer dashboard" and the current navigation tests satisfy that literally while missing the actual hole. Add negative-path tests that POST to each privileged action with (a) no session and (b) a reader session, asserting 403. That test would have caught F-01 the day it was written.
+- **Two Low findings compound into a Medium.** No `Referrer-Policy` (F-09) plus the Google Fonts `<link>` on every page (F-15) means `/invite/accept?token=…` leaks admin invitation tokens to a third party on page load. Self-hosting the fonts fixes the leak and tightens the future CSP at the same time.
+- **`docs/` is not in `.prettierignore`**, so `prettier --check .` lints markdown in this repo — a long table in a new `.md` file will fail `bun run lint` in CI. `docs/SECURITY_AUDIT.md` was formatted with Prettier before committing for exactly this reason. Worth remembering for any future docs-heavy session.
+- Several findings (F-02, F-04, F-08) are materially riskier for a self-hoster following the README than for the maintainer's own instance. Self-hosters are the product's users; the threat model should cover them explicitly.
+- No new environment variables or secrets were added. The report _recommends_ two for future sessions: `SETUP_TOKEN` (F-04) and `ENCRYPTION_KEY` (F-08), both via `wrangler secret put`.
+
+---
+
 ## Hotfix 15 — Email template polish: spacing, logo, warm sign-off
 
 **Date & Time (IST):** 2026-07-26 03:15 IST

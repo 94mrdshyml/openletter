@@ -20,5 +20,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.session = session?.session ?? null;
 	event.locals.user = session?.user ?? null;
 
+	// The /dashboard gate lives here, not in dashboard/+layout.server.ts, because
+	// SvelteKit runs form actions BEFORE any load function (see
+	// handle_action_request in kit's runtime/server/page/index.js). A guard in a
+	// layout load therefore protects page renders but not actions — the action
+	// commits its writes and only then does the redirect fire. Hooks run first,
+	// so this covers both. Actions still re-check themselves; see requireAdmin.
+	if (event.url.pathname.startsWith('/dashboard')) {
+		if (!event.locals.user || event.locals.user.role !== 'admin') {
+			redirect(303, '/login');
+		}
+	}
+
 	return resolve(event);
 };
