@@ -14,34 +14,34 @@ There is, however, **one critical, remotely exploitable privilege-escalation cha
 
 ### Ranked findings
 
-| #  | Severity | Finding | Est. CVSS |
-|----|----------|---------|-----------|
-| [F-01](#f-01--critical--missing-authorization-on-dashboardsettings-form-actions) | **Critical** | Missing authorization on `/dashboard/settings` form actions → any reader escalates to admin | 9.1 |
-| [F-02](#f-02--high--test-only-admin-login-bypass-ships-in-the-production-bundle) | **High** | Test-only admin login bypass ships in the production bundle | 8.1 |
-| [F-03](#f-03--high--no-rate-limiting-on-magic-link-email-sending) | **High** | No rate limiting on magic-link sending → email bombing, spam relay, cost/reputation damage | 7.5 |
-| [F-04](#f-04--high--unclaimed-setup-is-an-unauthenticated-instance-takeover-window) | **High** | Unclaimed `/setup` is an unauthenticated instance-takeover window | 7.3 |
-| [F-05](#f-05--medium--stored-xss-via-svg-upload-to-the-public-r2-bucket) | **Medium** | Stored XSS via SVG upload to the public R2 bucket | 6.1 |
-| [F-06](#f-06--medium--auth-baseurl-derived-from-the-request-no-trustedorigins-extra-public-origins) | **Medium** | Auth `baseURL` derived from the request; no `trustedOrigins`; extra public origins enabled | 6.1 |
-| [F-07](#f-07--medium--subscriber-email-enumeration) | **Medium** | Subscriber email enumeration oracle | 5.3 |
-| [F-08](#f-08--medium--resend-api-key-stored-in-plaintext-in-d1) | **Medium** | Resend API key stored in plaintext in D1 | 5.5 |
-| [F-09](#f-09--medium--no-security-response-headers) | **Medium** | No CSP, `X-Frame-Options`, `Referrer-Policy`, or HSTS | 5.4 |
-| [F-10](#f-10--medium--invitation-flow-weaknesses) | **Medium** | Invitation flow: token in query string, premature `emailVerified`, no revocation | 5.0 |
-| [F-11](#f-11--low--html-injection-in-transactional-email-templates) | Low | HTML injection in transactional email templates | 4.3 |
-| [F-12](#f-12--low--csrf-origin-check-is-bypassable-for-non-form-post-endpoints) | Low | SvelteKit CSRF check bypassable for non-form POST endpoints (`/logout`) | 4.3 |
-| [F-13](#f-13--low--no-input-validation-on-any-server-action) | Low | No input validation on any server action | 3.7 |
-| [F-14](#f-14--low--unbounded-uploads-and-no-storage-quota) | Low | Unbounded R2 uploads, no quota or rate limit | 3.7 |
-| [F-15](#f-15--low--third-party-font-cdn-with-no-sri) | Low | Third-party font CDN on every page, no SRI | 3.1 |
-| [F-16](#f-16--informational--no-unsubscribe-or-data-deletion-path-for-subscribers) | Info | No unsubscribe / data-deletion path for subscriber PII |  — |
-| [F-17](#f-17--informational--no-audit-logging-of-privileged-actions) | Info | No audit logging of privileged actions |  — |
-| [F-18](#f-18--informational--db-read-on-every-request-including-static-assets) | Info | Database read on every request including static assets |  — |
+| #                                                                                                   | Severity     | Finding                                                                                     | Est. CVSS |
+| --------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------- | --------- |
+| [F-01](#f-01--critical--missing-authorization-on-dashboardsettings-form-actions)                    | **Critical** | Missing authorization on `/dashboard/settings` form actions → any reader escalates to admin | 9.1       |
+| [F-02](#f-02--high--test-only-admin-login-bypass-ships-in-the-production-bundle)                    | **High**     | Test-only admin login bypass ships in the production bundle                                 | 8.1       |
+| [F-03](#f-03--high--no-rate-limiting-on-magic-link-email-sending)                                   | **High**     | No rate limiting on magic-link sending → email bombing, spam relay, cost/reputation damage  | 7.5       |
+| [F-04](#f-04--high--unclaimed-setup-is-an-unauthenticated-instance-takeover-window)                 | **High**     | Unclaimed `/setup` is an unauthenticated instance-takeover window                           | 7.3       |
+| [F-05](#f-05--medium--stored-xss-via-svg-upload-to-the-public-r2-bucket)                            | **Medium**   | Stored XSS via SVG upload to the public R2 bucket                                           | 6.1       |
+| [F-06](#f-06--medium--auth-baseurl-derived-from-the-request-no-trustedorigins-extra-public-origins) | **Medium**   | Auth `baseURL` derived from the request; no `trustedOrigins`; extra public origins enabled  | 6.1       |
+| [F-07](#f-07--medium--subscriber-email-enumeration)                                                 | **Medium**   | Subscriber email enumeration oracle                                                         | 5.3       |
+| [F-08](#f-08--medium--resend-api-key-stored-in-plaintext-in-d1)                                     | **Medium**   | Resend API key stored in plaintext in D1                                                    | 5.5       |
+| [F-09](#f-09--medium--no-security-response-headers)                                                 | **Medium**   | No CSP, `X-Frame-Options`, `Referrer-Policy`, or HSTS                                       | 5.4       |
+| [F-10](#f-10--medium--invitation-flow-weaknesses)                                                   | **Medium**   | Invitation flow: token in query string, premature `emailVerified`, no revocation            | 5.0       |
+| [F-11](#f-11--low--html-injection-in-transactional-email-templates)                                 | Low          | HTML injection in transactional email templates                                             | 4.3       |
+| [F-12](#f-12--low--csrf-origin-check-is-bypassable-for-non-form-post-endpoints)                     | Low          | SvelteKit CSRF check bypassable for non-form POST endpoints (`/logout`)                     | 4.3       |
+| [F-13](#f-13--low--no-input-validation-on-any-server-action)                                        | Low          | No input validation on any server action                                                    | 3.7       |
+| [F-14](#f-14--low--unbounded-uploads-and-no-storage-quota)                                          | Low          | Unbounded R2 uploads, no quota or rate limit                                                | 3.7       |
+| [F-15](#f-15--low--third-party-font-cdn-with-no-sri)                                                | Low          | Third-party font CDN on every page, no SRI                                                  | 3.1       |
+| [F-16](#f-16--informational--no-unsubscribe-or-data-deletion-path-for-subscribers)                  | Info         | No unsubscribe / data-deletion path for subscriber PII                                      | —         |
+| [F-17](#f-17--informational--no-audit-logging-of-privileged-actions)                                | Info         | No audit logging of privileged actions                                                      | —         |
+| [F-18](#f-18--informational--db-read-on-every-request-including-static-assets)                      | Info         | Database read on every request including static assets                                      | —         |
 
-### What is *not* a problem (verified)
+### What is _not_ a problem (verified)
 
 - **SQL injection** — every query goes through Drizzle's parameterised builder. No string-concatenated SQL, no `sql.raw` with user input.
 - **XSS in the app itself** — zero uses of `{@html}`, `innerHTML`, or `eval` anywhere in `src/`. Svelte escapes all interpolation by default.
 - **Secrets in git** — no `.dev.vars`, `.env`, tokens, or keys committed. `.gitignore` is correct. The one committed-looking value (`MEDIA_PUBLIC_URL`) is a public R2 URL, which is fine.
 - **CI secret exposure** — `ci.yml` uses `pull_request` (not `pull_request_target`), so fork PRs never receive `BETTER_AUTH_SECRET`. The deploy job is gated behind `environment: production` and `needs: build`.
-- **The `/setup` race** — genuinely closed by the `setup_lock` PRIMARY KEY, and the lock is claimed *before* any other work in the action. This is the correct pattern and, notably, the only action in the codebase that defends itself rather than relying on a load function.
+- **The `/setup` race** — genuinely closed by the `setup_lock` PRIMARY KEY, and the lock is claimed _before_ any other work in the action. This is the correct pattern and, notably, the only action in the codebase that defends itself rather than relying on a load function.
 - **`resendApiKey` leakage to the client** — correctly excluded in both `+layout.server.ts` (explicit column allow-list) and `dashboard/settings/+page.server.ts` (destructured out).
 - **Dependencies** — `better-auth@1.6.24`, `drizzle-orm@0.45.2`, `nanoid@6.0.0` are current with no known advisories at time of review.
 
@@ -65,7 +65,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 };
 ```
 
-That guard protects *page rendering*. It does **not** protect *form actions*, because SvelteKit runs actions before it runs any `load` function. Verified in `@sveltejs/kit@2.63.0`, `src/runtime/server/page/index.js`:
+That guard protects _page rendering_. It does **not** protect _form actions_, because SvelteKit runs actions before it runs any `load` function. Verified in `@sveltejs/kit@2.63.0`, `src/runtime/server/page/index.js`:
 
 ```
 line  77:   action_result = await handle_action_request(event, event_state, leaf_node.server);
@@ -75,7 +75,7 @@ line 228:   return await load_data({ ... })     // layout/page loads run here �
 
 The action executes, commits its database writes, and only then does SvelteKit run the layout load whose redirect would have blocked the request. The redirect arrives too late to matter.
 
-Nothing else covers the gap. `hooks.server.ts` — the one place that *does* run before everything — only handles the setup redirect and session hydration; it has no `/dashboard` gate.
+Nothing else covers the gap. `hooks.server.ts` — the one place that _does_ run before everything — only handles the setup redirect and session hydration; it has no `/dashboard` gate.
 
 So both actions on this page are reachable by anyone holding **any** session, including a plain reader's:
 
@@ -89,6 +89,7 @@ Getting a reader session requires no approval from anyone — the public subscri
 1. Attacker submits their own email to the public subscribe form on the homepage (`(public)/+page.server.ts` → `signInMagicLink`).
 2. They click the magic link in their own inbox. They now hold a valid session with `role: 'reader'`.
 3. They send one request:
+
    ```
    POST /dashboard/settings?/invite
    Origin: https://victim-publication.com
@@ -97,7 +98,9 @@ Getting a reader session requires no approval from anyone — the public subscri
 
    email=attacker@evil.com
    ```
+
    `locals.user` is populated (they are a legitimate reader), so `locals.user!.id` resolves, the invitation row is written, and `sendInvitationEmail` delivers an admin invite to the attacker's own inbox.
+
 4. They open `/invite/accept?token=…`, which sets `role: 'admin'` and `emailVerified: true` on their account and signs them in.
 5. They are now an administrator of the publication.
 
@@ -150,7 +153,7 @@ export const actions: Actions = {
 
 Note the `locals.user!` non-null assertion in the current `invite` action — that `!` is exactly where the type system was silently told to stop asking the question that mattered. Removing it in favour of `requireAdmin` makes the guard load-bearing rather than assumed.
 
-**3. Audit every other action in the codebase against the same rule.** I checked all of them: `my-profile` correctly re-checks `locals.user` inside its action, and `/setup` correctly claims its lock inside the action. Those two are fine. Add a code-review checklist item: *every `+page.server.ts` action performs its own authorization; a `load` guard never counts.*
+**3. Audit every other action in the codebase against the same rule.** I checked all of them: `my-profile` correctly re-checks `locals.user` inside its action, and `/setup` correctly claims its lock inside the action. Those two are fine. Add a code-review checklist item: _every `+page.server.ts` action performs its own authorization; a `load` guard never counts._
 
 ---
 
@@ -220,7 +223,10 @@ Four separate routes accept an arbitrary attacker-supplied email address and sen
 export const actions: Actions = {
 	default: async ({ request, platform, url }) => {
 		const email = String(data.get('email') ?? '');
-		await auth.api.signInMagicLink({ body: { email, callbackURL: '/dashboard' }, headers: request.headers });
+		await auth.api.signInMagicLink({
+			body: { email, callbackURL: '/dashboard' },
+			headers: request.headers
+		});
 		return { resent: true };
 	}
 };
@@ -318,7 +324,7 @@ async function uploadImage(env: Env, file: File, folder: string): Promise<string
 	const bytes = await file.arrayBuffer();
 	if (bytes.byteLength > MAX_IMAGE_BYTES) throw new Error('File must be under 5MB');
 
-	const sniffed = sniffImageType(bytes);          // magic bytes, not file.type
+	const sniffed = sniffImageType(bytes); // magic bytes, not file.type
 	const ext = ALLOWED[sniffed as keyof typeof ALLOWED];
 	if (!ext) throw new Error('File must be a JPEG, PNG, WebP, or GIF');
 
@@ -347,7 +353,7 @@ Additionally: serve media through a Cloudflare Worker route or a custom domain w
 Every call site constructs the auth instance from the request's own origin:
 
 ```ts
-const auth = createAuth(env, url.origin);   // hooks.server.ts, and every route
+const auth = createAuth(env, url.origin); // hooks.server.ts, and every route
 ```
 
 Better Auth uses `baseURL` to build the magic-link URL it emails out, and `trustedOrigins` is never configured — so it falls back to trusting whatever `baseURL` it was handed. This makes the origin embedded in an emailed authentication link a function of an inbound request property rather than of configuration.
@@ -372,7 +378,7 @@ export function createAuth(env: Env, requestOrigin: string) {
 	const baseURL = env.PUBLIC_ORIGIN ?? requestOrigin;
 	return betterAuth({
 		baseURL,
-		trustedOrigins: [baseURL],
+		trustedOrigins: [baseURL]
 		// …
 	});
 }
@@ -411,9 +417,12 @@ export const actions: Actions = {
 		const email = String(data.get('email') ?? '');
 		const existing = await db.query.subscriber.findFirst({ where: eq(subscriber.email, email) });
 		if (!existing) {
-			await auth.api.signInMagicLink({ body: { email, callbackURL: '/' }, headers: request.headers });
+			await auth.api.signInMagicLink({
+				body: { email, callbackURL: '/' },
+				headers: request.headers
+			});
 		} else {
-			await sendAlreadySubscribedEmail(platform!.env, email);  // same shape of work
+			await sendAlreadySubscribedEmail(platform!.env, email); // same shape of work
 		}
 		return { submitted: true };
 	}
@@ -445,7 +454,11 @@ Encrypt the key at rest with a key that lives outside the database:
 ```ts
 // Encrypt with AES-GCM using a Cloudflare secret as the wrapping key
 const wrappingKey = await crypto.subtle.importKey(
-	'raw', hexToBytes(env.ENCRYPTION_KEY), 'AES-GCM', false, ['encrypt', 'decrypt']
+	'raw',
+	hexToBytes(env.ENCRYPTION_KEY),
+	'AES-GCM',
+	false,
+	['encrypt', 'decrypt']
 );
 const iv = crypto.getRandomValues(new Uint8Array(12));
 const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, wrappingKey, encoded);
@@ -485,7 +498,10 @@ response.headers.set('X-Frame-Options', 'DENY');
 response.headers.set('X-Content-Type-Options', 'nosniff');
 response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
-response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), interest-cohort=()');
+response.headers.set(
+	'Permissions-Policy',
+	'camera=(), microphone=(), geolocation=(), interest-cohort=()'
+);
 response.headers.set(
 	'Content-Security-Policy',
 	[
@@ -517,7 +533,7 @@ The token itself is fine — `crypto.randomUUID()` is CSPRNG-backed with ~122 bi
 
 1. **Token travels in a query string** (`/invite/accept?token=…`). Query strings land in browser history, in `Referer` headers to third parties (see [F-09](#f-09--medium--no-security-response-headers)), in corporate proxy logs, and in shared-link screenshots. An admin-grant token deserves better. Deliver it as a POST body or a path segment with `Referrer-Policy: no-referrer` on that route.
 
-2. **`emailVerified: true` and `role: 'admin'` are set before the invitee proves control of the mailbox.** The `accept` action writes the admin role first and *then* sends a magic link. Anyone who obtains the token — from a forwarded email, a leaked `Referer`, browser history on a shared machine — permanently promotes that account, whether or not they can read the invited mailbox. Reverse the order: verify first via the magic link, and grant `admin` only in the callback.
+2. **`emailVerified: true` and `role: 'admin'` are set before the invitee proves control of the mailbox.** The `accept` action writes the admin role first and _then_ sends a magic link. Anyone who obtains the token — from a forwarded email, a leaked `Referer`, browser history on a shared machine — permanently promotes that account, whether or not they can read the invited mailbox. Reverse the order: verify first via the magic link, and grant `admin` only in the callback.
 
 3. **No revocation and no listing.** The schema has a `revoked` status but nothing ever sets it, and there is no UI to view pending invitations. An admin who mistypes an address cannot undo it for seven days.
 
@@ -535,9 +551,7 @@ The token itself is fine — `crypto.randomUUID()` is CSPRNG-backed with ~122 bi
 Every interpolation into the email template is unescaped:
 
 ```ts
-`<img src="${logoUrl}" … />`
-`<span …>${pubName}</span>`
-`<a href="${ctaUrl}" …>${ctaText}</a>`
+`<img src="${logoUrl}" … />``<span …>${pubName}</span>``<a href="${ctaUrl}" …>${ctaText}</a>`;
 ```
 
 `pubName` and `logoUrl` are writer-controlled via `/setup` and `/dashboard/settings` with no validation. A publication name of `"><a href="https://evil.com">Click here</a><span x="` injects arbitrary markup into every transactional email the publication sends. Email clients block scripts, so this is not XSS — but it is a clean phishing-content injection into mail that arrives from a verified sender domain, which is exactly the trust the attacker wants to borrow.
@@ -548,11 +562,15 @@ Normally a writer injecting into their own emails is self-harm and barely worth 
 
 ```ts
 const esc = (s: string) =>
-	s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-	 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+	s
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
 ```
 
-Apply to `pubName`, `heading`, `body`, and `ctaText`. For `logoUrl` and `ctaUrl`, escape *and* validate the scheme is `https:` before interpolating into an attribute — an escaped `javascript:` URL is still a `javascript:` URL.
+Apply to `pubName`, `heading`, `body`, and `ctaText`. For `logoUrl` and `ctaUrl`, escape _and_ validate the scheme is `https:` before interpolating into an attribute — an escaped `javascript:` URL is still a `javascript:` URL.
 
 ---
 
@@ -599,7 +617,7 @@ const email = String(data.get('email') ?? '');
 There is no validation anywhere in the codebase: no email format check, no length limits, no character-set restrictions, no shape check on the Resend key. Consequences:
 
 - `/setup` and `/login` will create user rows and verification rows for syntactically invalid addresses, and hand them to Resend.
-- A megabyte-long `pubName` or `description` is written to D1 verbatim, bloating the row that `+layout.server.ts` loads on *every single page render* — a cheap self-inflicted performance cliff, and an availability lever for an attacker holding [F-01](#f-01--critical--missing-authorization-on-dashboardsettings-form-actions).
+- A megabyte-long `pubName` or `description` is written to D1 verbatim, bloating the row that `+layout.server.ts` loads on _every single page render_ — a cheap self-inflicted performance cliff, and an availability lever for an attacker holding [F-01](#f-01--critical--missing-authorization-on-dashboardsettings-form-actions).
 - `slugify()` can only ever return `'publication'` for a name of pure non-ASCII (e.g. Devanagari or CJK), so two such publications would collide on the `slug` unique constraint. Not a security issue, but an availability one worth fixing nearby.
 
 **Fix:** `zod` is already in the dependency tree (via `better-auth`). Define a schema per action and parse at the top:
@@ -610,7 +628,11 @@ const SettingsSchema = z.object({
 	tagline: z.string().trim().max(300).nullable(),
 	description: z.string().trim().max(2000).nullable(),
 	category: z.string().trim().max(100).nullable(),
-	resendApiKey: z.string().regex(/^re_[A-Za-z0-9_]+$/).max(200).optional(),
+	resendApiKey: z
+		.string()
+		.regex(/^re_[A-Za-z0-9_]+$/)
+		.max(200)
+		.optional(),
 	resendFromEmail: z.string().email().max(320).nullable()
 });
 
@@ -681,7 +703,7 @@ Nothing records who invited whom, who changed the Resend configuration, when an 
 
 **Immediately (before any further feature work):**
 
-1. **[F-01]** Add the `/dashboard` guard in `hooks.server.ts` *and* per-action `requireAdmin()` checks. Then audit existing `user` rows for unexpected `role = 'admin'`, and purge pending `invitation` rows.
+1. **[F-01]** Add the `/dashboard` guard in `hooks.server.ts` _and_ per-action `requireAdmin()` checks. Then audit existing `user` rows for unexpected `role = 'admin'`, and purge pending `invitation` rows.
 2. **[F-02]** Gate the test-login endpoint on `$app/environment`'s `dev` so it cannot exist in a production build; flip its default role to `reader`.
 
 **This week:**
@@ -710,7 +732,7 @@ Nothing records who invited whom, who changed the Resend configuration, when an 
 
 The critical finding was not a careless mistake — it was a plausible and widely-held misreading of how SvelteKit orders actions and loads. The fix is a check that does not rely on remembering:
 
-- **Code-review checklist rule:** *every `+page.server.ts` action performs its own authorization; a `load` guard never counts.* Add it to `CLAUDE.md`'s Definition of Done.
+- **Code-review checklist rule:** _every `+page.server.ts` action performs its own authorization; a `load` guard never counts._ Add it to `CLAUDE.md`'s Definition of Done.
 - **Negative-path E2E tests.** `CLAUDE.md`'s E2E requirements cover "auth protection: unauthenticated users cannot reach the writer dashboard" — but the existing navigation tests only assert on `GET`. Add tests that POST to each privileged action with (a) no session and (b) a reader session, and assert `403`. That test would have caught F-01 on the day it was written.
 - **Add a security review gate** to `ci.yml`: a `bun audit` step, and a grep of the built `_worker.js` for `testUtils`.
 - **Threat-model the self-hosted deployment specifically.** Several findings here (F-02, F-04, F-08) are low-risk for the maintainer's own instance and materially higher-risk for a self-hoster following the README. Self-hosters are the product's users; their defaults should be the safe ones.
