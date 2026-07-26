@@ -48,8 +48,15 @@ jobs:
       - name: Apply local D1 migrations
         run: bunx wrangler d1 migrations apply openletter --local
 
+      # VITE_ENABLE_TEST_AUTH is a build-time flag that compiles in the
+      # test-only login bypass (src/routes/api/test/login). Playwright builds
+      # the app itself via its webServer command, so the flag must be set on
+      # this step. It is deliberately NOT set on the "Build" step below, nor
+      # anywhere in the deploy job — the deployed bundle must not contain it.
       - name: E2E tests
         run: bun run test:e2e
+        env:
+          VITE_ENABLE_TEST_AUTH: 'true'
 
       # `wrangler dev` (used by Playwright's preview server above) rewrites
       # worker-configuration.d.ts as a side effect on startup. Regenerate

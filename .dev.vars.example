@@ -5,8 +5,16 @@
 # Better Auth secret — any random 32+ byte string, e.g. `openssl rand -hex 32`
 BETTER_AUTH_SECRET=
 
-# Local/CI only — gates the test-only login-bypass endpoint used by e2e
-# tests (src/routes/api/test/login). Never set this in production secrets.
+# Local/CI only — the RUNTIME half of the gate on the test-only login-bypass
+# endpoint (src/routes/api/test/login). Never set this in production secrets.
+#
+# There is a second, BUILD-time half: VITE_ENABLE_TEST_AUTH. Both must be set
+# or the endpoint 404s. VITE_ vars are read by Vite from the shell/.env at
+# build time, NOT from this file, so to run e2e tests locally use:
+#
+#   VITE_ENABLE_TEST_AUTH=true bun run test:e2e
+#
+# Setting only this one is safe — it does nothing without the build flag.
 ENABLE_TEST_AUTH=
 
 # --- Cloudflare CLI auth (optional, local only) ---

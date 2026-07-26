@@ -2,6 +2,56 @@
 
 ---
 
+## Hotfix 16 — Fix critical privilege escalation (F-01) and test-auth bypass (F-02)
+
+**Date & Time (IST):** 2026-07-26 16:38 IST
+**Status:** Completed
+**Branch:** claude/security-vuln-scan-report-62u4ey
+
+**Auth-affecting hotfix — per the Hotfix Protocol in `CLAUDE.md`, this must be merged to main before any in-progress feature session merges.**
+
+### What We Built
+
+Remediation of the two most severe findings from Session 14's audit.
+
+**F-01 (Critical) — reader→admin privilege escalation.** `dashboard/+layout.server.ts` guarded page renders only; SvelteKit runs form actions _before_ load functions, so `/dashboard/settings`'s `save` and `invite` actions were reachable by anyone holding any session. A member of the public could subscribe on the homepage to get a `reader` session, POST to `?/invite` to issue themselves an admin invitation, accept it, and become an admin — or use `?/save` to repoint `resendApiKey`/`resendFromEmail` at their own Resend account.
+
+**F-02 (High) — test-only login bypass shipped in the production bundle**, gated only by a runtime env var and defaulting to `role=admin`.
+
+### How We Built It
+
+- `src/hooks.server.ts`: added a `/dashboard` gate after session hydration. Hooks run before actions, which is the only layer that can cover both page loads and actions. Kept `redirect(303, '/login')` rather than a 403 so existing UX and e2e expectations are unchanged.
+- `src/routes/dashboard/settings/+page.server.ts`: added a local `requireAdmin(locals)` and called it at the top of both actions — the hook gate is one refactor away from being wrong, so the actions no longer depend on it. Removed the `locals.user!` non-null assertion in `invite`, which was where the type system had been told to stop asking the question that mattered.
+- `src/routes/api/test/login/+server.ts`: gated on a **build-time** `VITE_ENABLE_TEST_AUTH` flag in addition to the runtime `ENABLE_TEST_AUTH`, and flipped the default role from `admin` to `reader`. `src/lib/test/auth.ts` now passes `role=admin` explicitly.
+- Both workflows: `VITE_ENABLE_TEST_AUTH: 'true'` set **only** on the E2E step, never on the Build step or anywhere in the deploy job.
+- Five negative-path e2e tests in `src/routes/dashboard/settings/page.svelte.e2e.ts` that POST directly to the actions.
+
+### In Scope
+
+- F-01 and F-02 only.
+
+### Out of Scope
+
+- **The other 16 audit findings remain open**, including F-03 (no rate limiting on magic-link sending), F-04 (unclaimed `/setup` takeover window), and F-05 (SVG stored XSS). See `docs/SECURITY_AUDIT.md`.
+- **Production data audit not performed.** Read-only queries to check for unexpected `role = 'admin'` rows and pending `invitation` rows were handed to the user to run; per the Database Safety rules nothing was executed against remote D1 from this session.
+
+### Breaking Changes
+
+- **`/api/test/login` now requires `VITE_ENABLE_TEST_AUTH=true` at BUILD time, not just `ENABLE_TEST_AUTH=true` at runtime.** Running e2e tests locally now needs `VITE_ENABLE_TEST_AUTH=true bun run test:e2e`. Documented in `.dev.vars.example`. CI updated.
+- **`/api/test/login` defaults to `role=reader`** instead of `admin`. Any caller wanting an admin session must pass `role=admin`.
+
+### Notes for Future Sessions
+
+- **The audit report's own F-02 advice was wrong and is corrected in-place.** It recommended gating on `$app/environment`'s `dev`; that would have broken every e2e test, because `playwright.config.ts` runs `bun run build && bun run preview` — tests hit a **production** build where `dev` is `false`. Build-time Vite flags are the tool for this, not `dev`.
+- **A redirect thrown from hooks during a form-action POST returns HTTP 200 carrying SvelteKit's action-result envelope** (`{"type":"redirect","status":303,"location":"/login"}`), not a bare 303 — a plain GET does get a real 303. The first version of these tests asserted `status === 303` and failed against working code. Assert on the envelope. Also note Playwright's `maxRedirects: 0` throws rather than returning the 3xx, so it is not a way to observe this.
+- **The new tests were verified to fail against the vulnerable code** (fix stashed, 4 of 5 failed). The fifth, `a reader cannot load the settings page`, passes either way because the layout guard always covered page renders — that asymmetry _is_ the bug, and it is why GET-only tests missed this for so long. Any future auth test must exercise POST.
+- **`bun run check` reports ~1430 spurious errors if run after a build**, because svelte-check scans `.svelte-kit/output`. CI is unaffected (it runs `check` before any build). If checking locally after a build, `rm -rf .svelte-kit/output` first. `check` also needs `.dev.vars` present or `Env` won't include `BETTER_AUTH_SECRET`/`ENABLE_TEST_AUTH`.
+- `dashboard/+layout.server.ts`'s guard was deliberately left in place as defence in depth even though the hook now makes it redundant.
+- `requireAdmin` is local to the settings route. When a second dashboard route gains actions, promote it to a shared server helper rather than copy-pasting.
+- No new secrets. `VITE_ENABLE_TEST_AUTH` is a build-time CI variable, not a secret, and must never be set for a production build.
+
+---
+
 ## Session 14 — Security Audit (review only, no remediation)
 
 **Date & Time (IST):** 2026-07-26 15:42 IST

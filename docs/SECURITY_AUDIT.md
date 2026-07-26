@@ -4,6 +4,10 @@
 **Scope:** Full repository at commit `34a0e20` (`main`) — SvelteKit app on Cloudflare Workers, D1 (Drizzle), R2, Better Auth (magic link), Resend.
 **Method:** Manual source review of every server-side route, hook, and lib; auth/authorization flow tracing; secrets and CI/CD review; dependency and configuration review. Framework behaviour claims were verified against the pinned `@sveltejs/kit@2.63.0` source, not assumed.
 
+> **Remediation status (2026-07-26):** **F-01 and F-02 are FIXED** — see the note on each. The remaining 16 findings are open. Findings below are preserved as originally written, so the exploit descriptions are historical for F-01/F-02.
+>
+> One correction to this report's own advice: F-02's original fix recommended gating on `$app/environment`'s `dev`. That is **wrong for this project** — `playwright.config.ts` runs `bun run build && bun run preview`, so e2e tests execute against a production build where `dev` is `false`, and the gate would have 404'd the endpoint during every test run. The shipped fix uses a build-time `VITE_ENABLE_TEST_AUTH` flag instead.
+
 ---
 
 ## Executive summary
@@ -52,6 +56,7 @@ There is, however, **one critical, remotely exploitable privilege-escalation cha
 **Files:** `src/routes/dashboard/settings/+page.server.ts`, `src/routes/dashboard/+layout.server.ts`, `src/hooks.server.ts`
 **Class:** CWE-862 Missing Authorization / CWE-269 Improper Privilege Management
 **Impact:** Complete remote takeover of any deployed instance by any member of the public.
+**Status: FIXED (2026-07-26).** `/dashboard` is now gated in `hooks.server.ts` (which runs before actions) and both settings actions call `requireAdmin(locals)`. Covered by five negative-path e2e tests; four of them were confirmed to fail against the vulnerable code before the fix landed.
 
 ### What it is
 
@@ -162,6 +167,7 @@ Note the `locals.user!` non-null assertion in the current `invite` action — th
 **File:** `src/routes/api/test/login/+server.ts`
 **Class:** CWE-489 Active Debug Code / CWE-288 Authentication Bypass Using an Alternate Path
 **Impact:** Instant unauthenticated admin session for anyone, if a single environment variable is ever set.
+**Status: FIXED (2026-07-26).** Now gated on a build-time `VITE_ENABLE_TEST_AUTH` flag as well as the runtime var, and the default role flipped from `admin` to `reader`. Verified: in a build without the flag the handler tree-shakes down to `return new Response('Not found', { status: 404 })` with all better-auth test-utils code removed, and the route 404s even with `ENABLE_TEST_AUTH=true` set at runtime — the exact failure mode this finding described.
 
 ### What it is
 
