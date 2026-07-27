@@ -2,6 +2,39 @@
 
 ---
 
+## Hotfix 17 — AdminNav "My profile" link + PublicNav mobile nav crowding fix
+
+**Date & Time (IST):** 2026-07-27 13:05 IST
+**Status:** Completed
+**Branch:** fix/adminnav-profile-link-mobile-nav
+
+### What We Built
+
+Two follow-ups to Hotfix 11/12's nav work, both self-flagged (not user-reported): (1) `AdminNav` had "Log out" but no "My profile" link — an admin had to leave the dashboard to edit their own name/avatar; (2) `PublicNav` had no overflow handling, so at a real 375px mobile viewport the publication name and the 3 signed-in-user links (Dashboard/My profile/Log out) visibly wrapped onto multiple lines — confirmed via a live gstack browse screenshot before fixing, not just inferred.
+
+### How We Built It
+
+- `AdminNav.svelte`: added a "My profile" link (→ `/my-profile`) next to "View publication →", matching its existing `white-space:nowrap` style.
+- `PublicNav.svelte`: added `overflow-x:auto` to the flex container and `white-space:nowrap` to every nav item — same pattern already established in `AdminNav` from an earlier hotfix. Verified the fix with a second gstack screenshot at the same 375px viewport: no wrapping, clean single line, horizontal scroll as the floor for anything narrower.
+- Local verification required rebuilding with `VITE_ENABLE_TEST_AUTH=true` (PR #29's new build-time gate on the test-login endpoint) to get an admin session in gstack's browser — this wasn't needed before that security fix landed.
+
+### In Scope
+
+- AdminNav "My profile" link + e2e coverage.
+- PublicNav mobile overflow fix, visually verified via gstack browse (not just code review) before and after.
+
+### Out of Scope
+
+- No change to the underlying nav content/link set — same links as Hotfix 12, just laid out safely at narrow widths.
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- **For any future local e2e/manual QA run against `bun run preview`, remember `VITE_ENABLE_TEST_AUTH=true` must be set on the *build* step** (not just left to Playwright's default `bun run build && bun run preview` webServer command, which won't have it unless the env var is exported into the shell running `bun run test:e2e`/`bun run build` first) — otherwise `/api/test/login` 404s and `loginAsTestWriter`/`loginAsTestReader` silently can't log in. This is new behavior from PR #29 (Hotfix 16); wasn't a concern before.
+
 ## Hotfix 16 — Fix critical privilege escalation (F-01) and test-auth bypass (F-02)
 
 **Date & Time (IST):** 2026-07-26 16:38 IST
