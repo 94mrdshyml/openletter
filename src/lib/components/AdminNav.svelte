@@ -44,6 +44,12 @@
 			</a>
 		{/each}
 		<a
+			href={resolve('/my-profile')}
+			style="font-size:14px;color:var(--color-neutral-500);text-decoration:none;white-space:nowrap"
+		>
+			My profile
+		</a>
+		<a
 			href={resolve('/')}
 			style="font-size:14px;color:var(--color-neutral-500);text-decoration:none;white-space:nowrap"
 		>

@@ -29,3 +29,10 @@ test('logs out and re-gates the dashboard', async ({ page }) => {
 	await page.goto('/dashboard');
 	await expect(page).toHaveURL(/\/login/);
 });
+
+test('navigates to My profile from the dashboard nav', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard');
+	await page.getByRole('link', { name: 'My profile' }).click();
+	await expect(page).toHaveURL(/\/my-profile/);
+});
