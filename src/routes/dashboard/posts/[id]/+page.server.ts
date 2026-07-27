@@ -5,6 +5,17 @@ import { getDb } from '$lib/server/db';
 import { post, subscriber } from '$lib/server/db/schema';
 import { parsePostForm } from '$lib/server/post-form';
 
+// Every action authorizes itself rather than trusting the /dashboard gate in
+// hooks.server.ts — see docs/SECURITY_AUDIT.md F-01. The gate covers this
+// route too, but an action that depends on it is one refactor away from
+// being wrong, and these two actions write posts to the public site.
+function requireAdmin(locals: App.Locals) {
+	if (!locals.user || locals.user.role !== 'admin') {
+		error(403, 'Forbidden');
+	}
+	return locals.user;
+}
+
 export const load: PageServerLoad = async ({ params, platform }) => {
 	const db = getDb(platform!.env.DB);
 	const existing = await db.query.post.findFirst({ where: eq(post.id, params.id) });
@@ -15,7 +26,8 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 };
 
 export const actions: Actions = {
-	save: async ({ request, platform, params }) => {
+	save: async ({ request, platform, params, locals }) => {
+		requireAdmin(locals);
 		const env = platform!.env;
 		const db = getDb(env.DB);
 		const parsed = await parsePostForm(request, env);
@@ -34,7 +46,8 @@ export const actions: Actions = {
 			.where(eq(post.id, params.id));
 		return { saved: true };
 	},
-	publish: async ({ request, platform, params }) => {
+	publish: async ({ request, platform, params, locals }) => {
+		requireAdmin(locals);
 		const env = platform!.env;
 		const db = getDb(env.DB);
 		const parsed = await parsePostForm(request, env);

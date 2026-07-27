@@ -30,8 +30,10 @@ export default async function globalSetup() {
 	// Set-Cookie headers (loginAsTestWriter's page helper applies them via
 	// BrowserContext.addCookies, which this plain APIRequestContext doesn't
 	// have) — so the session token is forwarded manually as a Cookie header
-	// on the seed requests below instead.
-	const loginRes = await ctx.get('/api/test/login');
+	// on the seed requests below instead. role=admin is explicit — the
+	// endpoint defaults to reader (fail-safe, see its own comment), and
+	// /dashboard/posts/new is now admin-gated at the hook level.
+	const loginRes = await ctx.get('/api/test/login?role=admin');
 	const { cookies } = (await loginRes.json()) as { cookies: { name: string; value: string }[] };
 	const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
 
