@@ -33,7 +33,7 @@ NONE.
 
 ### Notes for Future Sessions
 
-- **For any future local e2e/manual QA run against `bun run preview`, remember `VITE_ENABLE_TEST_AUTH=true` must be set on the *build* step** (not just left to Playwright's default `bun run build && bun run preview` webServer command, which won't have it unless the env var is exported into the shell running `bun run test:e2e`/`bun run build` first) — otherwise `/api/test/login` 404s and `loginAsTestWriter`/`loginAsTestReader` silently can't log in. This is new behavior from PR #29 (Hotfix 16); wasn't a concern before.
+- **For any future local e2e/manual QA run against `bun run preview`, remember `VITE_ENABLE_TEST_AUTH=true` must be set on the _build_ step** (not just left to Playwright's default `bun run build && bun run preview` webServer command, which won't have it unless the env var is exported into the shell running `bun run test:e2e`/`bun run build` first) — otherwise `/api/test/login` 404s and `loginAsTestWriter`/`loginAsTestReader` silently can't log in. This is new behavior from PR #29 (Hotfix 16); wasn't a concern before.
 
 ## Hotfix 16 — Fix critical privilege escalation (F-01) and test-auth bypass (F-02)
 
