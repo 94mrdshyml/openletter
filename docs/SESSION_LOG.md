@@ -342,6 +342,71 @@ Same worktree-isolation approach as prior hotfixes (another agent had an in-prog
 
 ---
 
+## Session 15 — Real post editor (Tiptap, publish loop, subscribe-wall, embeds, SEO)
+
+**Date & Time (IST):** 2026-07-25 22:30 IST
+**Status:** Completed
+**Branch:** feature/session-14-post-editor (numbered before a concurrent session's security audit also claimed "Session 14" and merged first — branch name predates the renumbering, not worth renaming mid-flight for a cosmetic mismatch)
+
+### What We Built
+
+The core PRD publish loop, built from zero — `/dashboard/posts` and `/dashboard/posts/new` had no backend at all going into this session (no `+page.server.ts` anywhere in that tree), just a static contenteditable mock. This session makes it real: a Tiptap-based editor (formatting, images, YouTube/Twitter embeds), draft/publish/schedule, a free subscribe-wall (not a paywall — see below), SEO meta tags, and a working preview link, all backed by D1's `post` table (present since Session 8, never actually written to until now). The homepage and `/p/[slug]` now read real published posts instead of `mock-data.ts`.
+
+### How We Built It
+
+- **Paywall vs. subscribe-wall — explicit scope decision, confirmed with the user before writing code.** The request named both "a paywall and one subscribe wall." A real paywall needs Stripe/billing/webhooks, which `PRD.md` §7 explicitly excludes from v1 ("significant scope... not needed to validate the core loop"). Built the subscribe-wall only (gate full body behind `locals.user` existing — free, no payment); paywall deferred to its own future session rather than silently pulled into scope or silently dropped.
+- **Schema:** `post` gains `subtitle`, `coverImageUrl`, `wall` (`'public' | 'subscribers'`). Migration `0006_heavy_blink.sql`, pure `ALTER TABLE ADD COLUMN`.
+- **No 'scheduled' status, no Cron Trigger — a real infra constraint, not a shortcut.** Investigated first: `@sveltejs/adapter-cloudflare` (what this project uses) has no `scheduled` handler support at all; the only way to get one is a community fork adapter, which would have meant swapping deploy tooling for one feature. Instead, "schedule" is purely a query-time filter: a scheduled post is `status:'published'` with a future `publishedAt`, and every public read filters `publishedAt <= now`. Simpler than the cron design it replaced, and zero new infra risk.
+- **Tiptap** (`@tiptap/core`, `starter-kit`, `extension-link`, `extension-image`, `extension-placeholder`, `extension-youtube`), wired into Svelte 5 by hand in `TiptapEditor.svelte` (no official Svelte 5 binding package used — plain `Editor` instance in `onMount`, toolbar active-state tracked via a `$state` object synced from Tiptap's `onTransaction` hook, not by re-rendering the toolbar on every keystroke).
+- **Twitter/X embeds have no official Tiptap extension**, so `src/lib/tiptap/tweet-extension.ts` is a small custom Node: `renderHTML()` emits the exact markup Twitter's own oEmbed API returns (a `.twitter-tweet` blockquote), which is what actually gets saved in `post.body`. The public post page loads `platform.twitter.com/widgets.js` once, only when the body actually contains a tweet embed. YouTube needed no custom work — the official extension's `renderHTML()` output is a plain `<iframe>`, no client script required.
+- **Cover image:** 1200×630 (also doubles as the `og:image`/social-share image, so recommending that size costs nothing extra). Same R2 upload pattern as avatar/logo (`uploadCoverImage` in `media.ts`), no server-side resize, same as the existing uploads.
+- **New endpoint for inline images:** `src/routes/dashboard/posts/upload-image/+server.ts`. Real gotcha caught while building it — `+server.ts` routes do **not** inherit a sibling `+layout.server.ts`'s `load`-based auth gate (only page rendering goes through layouts), so it needs its own `locals.user?.role === 'admin'` check. Without that it would have been an open, unauthenticated upload endpoint.
+- **`/dashboard/posts/new` and `/dashboard/posts/[id]` share one page-shell component** (`PostEditorPage.svelte`) rather than duplicating the nav/dialog/schedule UI — both routes define actions named `save`/`publish`, and `action="?/save"` is route-relative, so the identical component works unmodified on either route, parameterized only by whether `post` is `null`.
+- **`/new`'s first "Save draft" click creates the row and redirects to `/dashboard/posts/[id]`** — matches Ghost's actual UX (a post has no stable id until the first save) and keeps `/new` and `/[id]`'s server actions symmetric (`[id]` never has to handle "doesn't exist yet").
+- **`slugify()` moved from `src/lib/server/slug.ts` to `src/lib/slug.ts`.** Caught during implementation, not before: `PostEditor.svelte` (a client component, live-deriving the slug as the writer types the title) can't import from `$lib/server/*` — SvelteKit blocks server-only modules from client code. Pure string logic, no server dependency, safe to share; both `dashboard/settings` and `setup`'s existing imports updated to the new path.
+- **Real leak caught and fixed proactively:** `{@html data.post.body}` on the public post page is a deliberate, documented exception to `svelte/no-at-html-tags` — `post.body` is Tiptap output, only ever written by the single authenticated admin, never by reader input. Suppressed with an inline comment explaining exactly why, not blanket-disabled.
+- **Manually verified in a real browser** (`gstack browse`, per `CLAUDE.md`'s UI-change requirement) before writing any e2e tests: logged in via the `/api/test/login` bypass with cookies imported into the browse session, wrote a real post, applied bold formatting, saved as draft, published it, confirmed it rendered correctly on `/p/[slug]` and the homepage, then confirmed subscribe-wall gating server-side (curl with no cookies saw the excerpt + CTA, not the body). Caught one real bug this way: `StarterKit` already bundles its own `Link` extension, and configuring a second one alongside it produced a "Duplicate extension names" warning — fixed with `StarterKit.configure({ link: false })`.
+- **`e2e-global-setup.ts` now seeds one real published post and one real draft** through the actual editor form actions (not a raw D1 insert — same principle as the existing `/setup` seeding) — reusing the exact title/slug/excerpt values the old `mock-data.ts` array had, so every pre-existing spec asserting on that specific content (`(public)/page.svelte.e2e.ts`, `(public)/p/[slug]/page.svelte.e2e.ts`, `dashboard/posts/page.svelte.e2e.ts`) kept working unmodified.
+- **Real bug caught by e2e testing, not just flakiness:** `PostEditor.svelte` originally submitted `title`/`subtitle`/`slug`/`excerpt`/`wall` via separate hidden `<input>`s relayed through Svelte `$state`, rather than the visible fields submitting themselves. Under a hydration-timing race (typing before the visible field's `oninput` handler attaches — realistic on this page specifically, since Tiptap's JS is heavy enough to make that window noticeable), the hidden input could submit stale/empty state even though the screen showed the typed text correctly. Fixed by adding `name=` directly to the visible fields — whatever's on screen at submit time is now what's actually sent, no relay step to go stale. Only `body` (Tiptap-driven) and `coverImageUrl` (async upload result) still route through hidden inputs, since neither has a native form field of its own. Caught by a genuinely reproducible e2e failure (title fell back to "Untitled"), not assumed — confirmed by triggering it, fixing the root cause, then confirming the same test passed cleanly on a fully fresh local D1, twice.
+- **Applied a concurrent session's F-01 security fix to this session's own new routes, before they ever reached `main`.** While this PR was open, a separate session shipped a critical fix (`docs/SECURITY_AUDIT.md` F-01): SvelteKit runs form actions _before_ any parent layout's `load` function, so `dashboard/+layout.server.ts`'s admin-only guard never actually protected any dashboard route's actions — only page renders. `/dashboard/posts/new` and `/dashboard/posts/[id]`'s `save`/`publish` actions were built under the same (wrong) assumption and had the identical hole: any reader session could have POSTed directly to them to create or publish posts. Merged that session's fix (`hooks.server.ts` now gates `/dashboard/*` before actions run at all) and added the same `requireAdmin(locals)` self-check inside both routes' actions, matching the exact pattern now used in `dashboard/settings/+page.server.ts` — defense in depth, since a hook is one refactor away from being wrong and these actions write directly to the public site. `e2e-global-setup.ts` also needed a fix in the same merge: the security session's other change (F-02) flipped the test-login bypass's default role from admin to reader (fail-safe), so the seeding script's login call needed an explicit `role=admin` query param to keep working.
+
+### A Note on This Session's Verification Loop
+
+Diagnosing the e2e failures above took several fresh-D1 cycles, since local D1 persists across repeated manual runs within one session (unlike CI, which starts empty every time) — a mid-suite failure could easily be mistaken for a real regression when it was actually a slug collision with a previous run's own leftover data. Wiped `.wrangler/state/v3/d1` and reapplied migrations before trusting any single run's result, consistent with the same lesson Hotfix 5 logged earlier this project.
+
+### In Scope
+
+- Tiptap editor: bold/italic/link/heading/blockquote/image, YouTube + Twitter/X embeds
+- Title, subtitle, body, cover image (1200×630), excerpt, editable slug
+- Draft / publish now / schedule (query-time visibility, no cron)
+- Subscribe-wall (free gate) — public vs. subscribers-only per post
+- SEO: title, meta description, canonical URL, OG + Twitter Card tags
+- Preview link (admin session sees unpublished/scheduled posts at their real `/p/[slug]` URL)
+- Homepage and `/p/[slug]` wired to real D1 data, `mock-data.ts`'s `posts`/`draftPosts` no longer used by any live route (still imported by the still-mock `dashboard/+page.svelte` and `dashboard/analytics/+page.svelte`, unchanged, out of scope)
+
+### Out of Scope
+
+- **Paid paywall** (Stripe, billing, webhooks) — deliberately deferred, see above. `wall` enum only has `'public' | 'subscribers'`; adding a `'paywall'` value is a real architectural decision for its own session.
+- **Publish → email** (`POST /broadcasts` to the Segment/Topic built in Hotfixes 6-9) — still not built. This session covers the writing/publishing side only; the newsletter-send side is the natural next Resend session.
+- Real dashboard stats (`dashboard/+page.svelte`, `dashboard/analytics/+page.svelte`) — still fully mock, deliberately not touched (separate from "post editor" scope, decided explicitly before starting)
+- Post deletion/duplication — no UI for either; the old mock's three-dot "more options" menu (never wired to anything) was dropped rather than carried forward as dead UI
+
+### Breaking Changes
+
+NONE — additive schema, no existing route's behavior changed except `dashboard/posts` and `/p/[slug]` swapping from mock to real (empty) data, which is the intended effect of this session.
+
+### Notes for Future Sessions
+
+- **Publish → email is the natural next session** — the Segment/Topic/API-key plumbing from Hotfixes 6-9 is what it will consume (`POST /broadcasts` with `segment_id`/`topic_id`, using the post's real `body`/`title`).
+- **A real paywall, if/when it's prioritized, is a from-scratch architectural session** (Stripe Checkout/Billing, webhook handling, a `subscription` table, `wall: 'paywall'` schema addition) — don't bolt it onto the existing `wall` enum without designing the whole payment lifecycle first.
+- **Scheduling has no admin-facing "scheduled posts" filter beyond the `Scheduled` tag in the posts list** — if a future session wants a dedicated scheduled-posts view, the query pattern (`status='published' AND publishedAt > now`) already exists in `dashboard/posts/+page.svelte`, just needs its own list.
+- **On a JS-heavy page (this editor, or anything else that pulls in a large client library), form fields should submit their own live DOM value directly (`name=` on the visible input) rather than relaying through a hidden input driven by component state** — the relay step can go stale if the user interacts before hydration finishes attaching handlers. This session's real bug (see above) is the concrete example; the same pattern is worth checking if a future session adds another rich-input page.
+- `slugify()` now lives in `src/lib/slug.ts` (not `server/`) — any future client component needing it should already find it there; don't re-fork server/client copies.
+- **This entry is numbered "Session 15," not "Session 14," despite the branch being named `feature/session-14-post-editor`.** A concurrent session's security audit also claimed "Session 14" and merged to `main` first while this PR was still open — this entry was renumbered on merge to avoid a duplicate heading, but the branch name itself wasn't renamed. If a future session greps for "session-14" and finds this branch history confusing, that's why.
+- **Any new `+page.server.ts` action on a route already covered by a route-prefix hook gate should still call the hook's `requireAdmin`-equivalent itself** (see the F-01 note above) — don't assume the hook covers it just because the route matches the gated prefix. This was true here even after merging the fix that added the hook gate in the first place.
+
+---
+
 ## Hotfix 9 — Topic ID becomes a manual field; distinct subscribe-confirmation email; already-subscribed check
 
 **Date & Time (IST):** 2026-07-25 21:45 IST
