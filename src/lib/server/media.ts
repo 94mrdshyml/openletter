@@ -25,3 +25,15 @@ export function uploadAvatar(env: Env, file: File): Promise<string> {
 export function uploadLogo(env: Env, file: File): Promise<string> {
 	return uploadImage(env, file, 'logos');
 }
+
+// No server-side resize — same as avatar/logo. 1200x630 is the writer's
+// recommended crop (also the OG/social-share image standard, so the cover
+// doubles as the link-preview image with no extra work), but nothing
+// enforces it; CSS handles display sizing regardless of the actual upload.
+export function uploadCoverImage(env: Env, file: File): Promise<string> {
+	return uploadImage(env, file, 'covers');
+}
+
+export function uploadPostImage(env: Env, file: File): Promise<string> {
+	return uploadImage(env, file, 'posts');
+}

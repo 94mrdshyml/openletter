@@ -8,4 +8,4 @@
 	const publicationName = $derived(page.data.publication?.name ?? 'OpenLetter');
 </script>
 
-<PostEditorPage post={null} {publicationName} subscriberCount={data.subscriberCount} />
+<PostEditorPage post={data.post} {publicationName} subscriberCount={data.subscriberCount} />

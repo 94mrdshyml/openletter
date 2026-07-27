@@ -43,11 +43,25 @@ export const post = sqliteTable('post', {
 		.$defaultFn(() => generateId('post')),
 	slug: text('slug').notNull().unique(),
 	title: text('title').notNull(),
+	subtitle: text('subtitle'),
 	excerpt: text('excerpt'),
 	body: text('body').notNull(),
+	coverImageUrl: text('cover_image_url'),
+	// 'subscribers' hides the full body behind SubscribeForm for anyone
+	// without a session — a free gate, not a paywall. Paid tiers are
+	// explicitly out of v1 scope (PRD.md §7); don't add a 'paywall' value
+	// here without that being a deliberate, separate architectural decision
+	// (Stripe, billing, webhooks).
+	wall: text('wall', { enum: ['public', 'subscribers'] })
+		.notNull()
+		.default('public'),
 	status: text('status', { enum: ['draft', 'published'] })
 		.notNull()
 		.default('draft'),
+	// Scheduling has no dedicated 'scheduled' status or background job — see
+	// CLAUDE.md's Known Gotchas. A post is status:'published' with a future
+	// publishedAt; every public read filters `publishedAt <= now`, so it's
+	// invisible until the moment arrives. Purely a query-time check, no cron.
 	publishedAt: integer('published_at', { mode: 'timestamp' }),
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()
