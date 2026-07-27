@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import AccountMenu from './AccountMenu.svelte';
 
 	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 	const user = $derived(page.data.user);
@@ -18,28 +19,7 @@
 			{name}
 		</a>
 		{#if user}
-			{#if user.role === 'admin'}
-				<a
-					href={resolve('/dashboard')}
-					style="font-size:14px;color:var(--color-text);text-decoration:none;font-family:var(--font-body);white-space:nowrap"
-				>
-					Dashboard
-				</a>
-			{/if}
-			<a
-				href={resolve('/my-profile')}
-				style="font-size:14px;color:var(--color-text);text-decoration:none;font-family:var(--font-body);white-space:nowrap"
-			>
-				My profile
-			</a>
-			<form method="POST" action="/logout" style="display:contents">
-				<button
-					type="submit"
-					style="background:none;border:none;padding:0;font:inherit;cursor:pointer;font-size:14px;color:var(--color-text);font-family:var(--font-body);white-space:nowrap"
-				>
-					Log out
-				</button>
-			</form>
+			<AccountMenu role={user.role} context="public" />
 		{:else}
 			<a
 				href={resolve('/login')}

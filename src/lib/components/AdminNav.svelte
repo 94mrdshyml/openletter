@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import AccountMenu from './AccountMenu.svelte';
 
 	let { current }: { current: 'dashboard' | 'analytics' | 'posts' | 'settings' } = $props();
 
@@ -43,25 +44,6 @@
 				{tab.label}
 			</a>
 		{/each}
-		<a
-			href={resolve('/my-profile')}
-			style="font-size:14px;color:var(--color-neutral-500);text-decoration:none;white-space:nowrap"
-		>
-			My profile
-		</a>
-		<a
-			href={resolve('/')}
-			style="font-size:14px;color:var(--color-neutral-500);text-decoration:none;white-space:nowrap"
-		>
-			View publication →
-		</a>
-		<form method="POST" action="/logout" style="display:contents">
-			<button
-				type="submit"
-				style="background:none;border:none;padding:0;font:inherit;cursor:pointer;font-size:14px;color:var(--color-neutral-500);white-space:nowrap"
-			>
-				Log out
-			</button>
-		</form>
+		<AccountMenu role="admin" context="admin" />
 	</div>
 </nav>

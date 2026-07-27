@@ -2,6 +2,42 @@
 
 ---
 
+## Hotfix 18 — Collapse nav account links into a single AccountMenu
+
+**Date & Time (IST):** 2026-07-27 13:55 IST
+**Status:** Completed
+**Branch:** feat/account-menu
+
+### What We Built
+
+User flagged that the nav's account-related link count kept growing hotfix over hotfix (Log out → +My profile → +Dashboard) and asked for a plan before it became unmanageable. Agreed direction: collapse all account actions into one hamburger-icon trigger with a dropdown, same component on both desktop and mobile — not two different nav shapes to maintain. New `src/lib/components/AccountMenu.svelte` replaces the separate My profile / Dashboard / Log out (and, in `AdminNav`, also View publication →) links in both `PublicNav` and `AdminNav`.
+
+### How We Built It
+
+- `AccountMenu.svelte` takes `role: 'admin' | 'reader'` and `context: 'public' | 'admin'`. Menu contents: Dashboard (only `role==='admin' && context==='public'` — redundant inside the dashboard itself, which already has a Dashboard tab), My profile (always), View publication → (only `context==='admin'`, since `PublicNav` is already on the public site), Log out (always).
+- Single hamburger-icon (☰) button trigger, `aria-label="Account menu"`, `aria-expanded`. Dropdown closes on outside click (`svelte:window onclick` + a wrapper-ref containment check) and on Escape.
+- **Real bug caught by the e2e suite, not by inspection:** the dropdown was originally `position:absolute`. `AdminNav`'s nav row has `overflow-x:auto` (from Hotfix 17, for the tab row) — per the CSS overflow spec, setting `overflow-x` to a non-`visible` value forces the other axis's `visible` to compute as `auto` too, so the dropdown (which extends below the nav) was silently clipped by that ancestor. Fixed by computing the dropdown's position as `position:fixed` from the trigger button's own `getBoundingClientRect()` — this escapes any ancestor's overflow/clip entirely, since `position:fixed` is positioned relative to the viewport, not the nearest scrolling ancestor.
+- `PublicNav.svelte` / `AdminNav.svelte`: swapped the individual links for `<AccountMenu role={...} context="public|admin" />`.
+
+### In Scope
+
+- Shared collapsible account menu, wired into both navs.
+- Updated all existing e2e tests that directly asserted on the now-collapsed links (both `(public)/page.svelte.e2e.ts` and `dashboard/page.svelte.e2e.ts`) to click "Account menu" first, then interact with the item inside.
+
+### Out of Scope
+
+- No change to `AdminNav`'s primary tab row (Dashboard/Analytics/Posts/Settings) — those are core navigation, not account-action clutter, and stay as visible top-level links.
+- No avatar/profile-picture shown in the trigger — plain hamburger icon only, matching the scope actually asked for.
+
+### Breaking Changes
+
+NONE — same destinations, just collapsed behind one trigger.
+
+### Notes for Future Sessions
+
+- **gstack browse could not reach `localhost` in this session's sandbox** (repeated "Page navigation timed out" from a fresh daemon on every call, unrelated to the app) — abandoned after 4 attempts across two builds. Fell back to the project's own Playwright e2e suite as the interactive verification (real Chromium, own server lifecycle) — which is exactly what caught the `overflow-x:auto` clipping bug above. Worth remembering: when gstack is flaky, the project's own e2e suite is often a better source of truth for interactive component behavior anyway, not just a fallback.
+- Any future nav account-action addition (e.g. billing, notifications) should go inside `AccountMenu`, not as a new top-level link — that's the whole point of this hotfix.
+
 ## Hotfix 17 — AdminNav "My profile" link + PublicNav mobile nav crowding fix
 
 **Date & Time (IST):** 2026-07-27 13:05 IST
