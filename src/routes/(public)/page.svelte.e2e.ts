@@ -26,16 +26,16 @@ test('shows an inline confirmation after subscribing', async ({ page }) => {
 	await expect(page.getByText('Check your inbox to confirm your subscription.')).toBeVisible();
 });
 
-test('shows a Log in link when logged out', async ({ page }) => {
+test('shows a Log in link when logged out, no account menu', async ({ page }) => {
 	await page.goto('/');
 	await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible();
-	await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
-	await expect(page.getByRole('link', { name: 'My profile' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Account menu' })).toHaveCount(0);
 });
 
 test('shows My profile but not Dashboard for a reader', async ({ page }) => {
 	await loginAsTestReader(page, 'nav-reader@example.com');
 	await page.goto('/');
+	await page.getByRole('button', { name: 'Account menu' }).click();
 	await expect(page.getByRole('link', { name: 'My profile' })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
 });
@@ -43,6 +43,7 @@ test('shows My profile but not Dashboard for a reader', async ({ page }) => {
 test('shows Dashboard and My profile for an admin', async ({ page }) => {
 	await loginAsTestWriter(page, 'nav-admin@example.com');
 	await page.goto('/');
+	await page.getByRole('button', { name: 'Account menu' }).click();
 	await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
 	await expect(page.getByRole('link', { name: 'My profile' })).toBeVisible();
 });
@@ -53,12 +54,14 @@ test('shows a Log out button for a signed-in reader, absent when logged out', as
 
 	await loginAsTestReader(page, 'nav-logout-reader@example.com');
 	await page.goto('/');
+	await page.getByRole('button', { name: 'Account menu' }).click();
 	await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
 });
 
 test('logs out from the homepage nav', async ({ page }) => {
 	await loginAsTestReader(page, 'nav-logout-reader-2@example.com');
 	await page.goto('/');
+	await page.getByRole('button', { name: 'Account menu' }).click();
 	await page.getByRole('button', { name: 'Log out' }).click();
 	await expect(page).toHaveURL(/\/$/);
 	await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible();

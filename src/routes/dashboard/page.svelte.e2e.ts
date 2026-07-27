@@ -24,6 +24,7 @@ test('shows subscriber count and published posts', async ({ page }) => {
 test('logs out and re-gates the dashboard', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard');
+	await page.getByRole('button', { name: 'Account menu' }).click();
 	await page.getByRole('button', { name: 'Log out' }).click();
 	await expect(page).toHaveURL(/\/$/);
 	await page.goto('/dashboard');
@@ -33,6 +34,7 @@ test('logs out and re-gates the dashboard', async ({ page }) => {
 test('navigates to My profile from the dashboard nav', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard');
+	await page.getByRole('button', { name: 'Account menu' }).click();
 	await page.getByRole('link', { name: 'My profile' }).click();
 	await expect(page).toHaveURL(/\/my-profile/);
 });
