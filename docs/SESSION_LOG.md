@@ -2,6 +2,43 @@
 
 ---
 
+## Hotfix 20 — Homepage post cards + bigger post-page images
+
+**Date & Time (IST):** 2026-08-01 21:40 IST
+**Status:** Completed
+**Branch:** fix/post-cards-and-image-sizing
+
+### What We Built
+
+User flagged two things from the live site: (1) the homepage post list was plain text only — title/date/excerpt, nothing visual, didn't "look good"; (2) on the post detail page, the cover/embedded images looked too small relative to the page.
+
+- Homepage (`(public)/+page.svelte`): each post row is now a card — a 180px cover-image thumbnail (1200:630 crop, same ratio as the detail page's hero) next to the title/date/excerpt, falling back cleanly to the existing text-only row when a post has no `coverImageUrl`. Title turns accent-colored on hover. Stacks to a single column below 520px.
+- Post detail page (`(public)/p/[slug]/+page.svelte`): both the cover image and every embedded body image now bleed to the full edge of the narrow article container instead of being squeezed by the article's own inline padding — `width: calc(100% + 2 * clamp(...))` with matching negative side margins. This makes images noticeably bigger **without** widening the 680px text column itself, which was a deliberate earlier design decision (narrow measure for prose readability) that this fix intentionally left alone.
+
+### How We Built It
+
+- Both changes are pure template/CSS — no server or schema changes. `post.coverImageUrl` was already available in the homepage's post list query (no column restriction on that `findMany`), so no server code needed touching.
+- Verified the bleed technique and the card layout by rendering the _exact_ production markup/CSS as standalone static HTML via gstack browse (not just code review) — screenshotted both, confirmed the thumbnail/fallback states on the homepage and the visible width difference between text and images on the post page.
+
+### In Scope
+
+- Homepage post-row cards with cover thumbnails + graceful no-cover fallback.
+- Post-page cover + body image sizing (bleed wider than the text column).
+
+### Out of Scope
+
+- No change to the 680px text-column width itself (explicit earlier decision, left alone).
+- No change to the post editor, publish flow, or any server logic.
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- **Local dev gotcha discovered this session: `curl -F` interprets any field value starting with `<` as "read from a local file"** (classic curl multipart footgun) — trying to POST body HTML like `<p>...</p>` via `-F "body=<p>...` silently fails with a file-read error. Use `--form-string` instead of `-F` for any field whose value might start with `<` or `@`.
+- Also hit: publishing a post locally with an external image URL (e.g. picsum.photos) in `coverImageUrl`/body caused the publish request to hang/timeout in this sandboxed local dev environment — never got a real end-to-end screenshot with an actual cover image rendered through the live app+DB pipeline this session, only the isolated static-HTML verification described above. If a future session has working outbound network access from local dev, worth a real check; otherwise verify on the live site after deploy (user can publish a test post with a cover image and eyeball it).
+
 ## Session 16 — Real dashboard overview data (subscriber count + post list)
 
 **Date & Time (IST):** 2026-08-01 13:15 IST

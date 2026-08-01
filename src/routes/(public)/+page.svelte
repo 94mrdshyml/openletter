@@ -42,22 +42,35 @@
 			{#each data.posts as post, i (post.slug)}
 				<a
 					href={resolve('/(public)/p/[slug]', { slug: post.slug })}
-					style="display:block;padding:28px 0;text-decoration:none;color:inherit;{i <
+					class="post-row"
+					style="display:flex;gap:24px;align-items:flex-start;padding:28px 0;text-decoration:none;color:inherit;{i <
 					data.posts.length - 1
 						? 'border-bottom:1px solid var(--color-divider)'
 						: ''}"
 				>
-					<h3 style="font-size:22px;margin:0 0 6px;line-height:1.2;letter-spacing:-0.015em">
-						{post.title}
-					</h3>
-					<div style="font-size:13px;color:var(--color-neutral-500);margin:0 0 8px">
-						{formatPostDate(post.publishedAt!.toISOString().slice(0, 10))}
+					{#if post.coverImageUrl}
+						<img
+							src={post.coverImageUrl}
+							alt=""
+							style="width:180px;aspect-ratio:1200/630;object-fit:cover;flex-shrink:0"
+						/>
+					{/if}
+					<div style="flex:1;min-width:0">
+						<h3
+							class="post-row-title"
+							style="font-size:22px;margin:0 0 6px;line-height:1.2;letter-spacing:-0.015em"
+						>
+							{post.title}
+						</h3>
+						<div style="font-size:13px;color:var(--color-neutral-500);margin:0 0 8px">
+							{formatPostDate(post.publishedAt!.toISOString().slice(0, 10))}
+						</div>
+						<p
+							style="font-size:15px;color:var(--color-neutral-700);margin:0;line-height:1.55;max-width:580px"
+						>
+							{post.excerpt}
+						</p>
 					</div>
-					<p
-						style="font-size:15px;color:var(--color-neutral-700);margin:0;line-height:1.55;max-width:580px"
-					>
-						{post.excerpt}
-					</p>
 				</a>
 			{/each}
 		</div>
@@ -71,3 +84,17 @@
 		{name} · Powered by OpenLetter
 	</div>
 </div>
+
+<style>
+	.post-row:hover .post-row-title {
+		color: var(--color-accent);
+	}
+	@media (max-width: 520px) {
+		.post-row {
+			flex-direction: column;
+		}
+		.post-row img {
+			width: 100%;
+		}
+	}
+</style>
