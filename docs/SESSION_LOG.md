@@ -2,6 +2,49 @@
 
 ---
 
+## Hotfix 22 — Homepage subtitle, post-page subscribe CTA, scroll-triggered popup
+
+**Date & Time (IST):** 2026-08-01 23:05 IST
+**Status:** Completed
+**Branch:** fix/post-page-subscribe-cta
+
+### What We Built
+
+Three related asks from the user in one pass:
+
+1. Homepage post rows showed the excerpt under the title/date; user wanted only heading + subheading (no excerpt). Swapped the excerpt paragraph for `post.subtitle` (falls back to nothing if a post has no subtitle — `{#if post.subtitle}`), since the post's `subtitle` field was already available on the existing `findMany` query.
+2. Anon (logged-out) visitors saw a "Log in" link in the nav on every page, including individual post pages — user wanted "Log in" reserved for the homepage only, replaced by a "Subscribe" button on post pages. `PublicNav.svelte` now derives `isPostPage` from `page.url.pathname.startsWith('/p/')` and branches: signed-in → `AccountMenu` (unchanged), signed-out + post page → `Subscribe` button anchored to `#subscribe`, signed-out + everywhere else → `Log in` (unchanged).
+3. New: an anon visitor on a post page who scrolls past ~45% of the page now gets a dismissible subscribe popup (`SubscribePopup.svelte`, new component) — a scroll listener computes `scrollY / (scrollHeight - innerHeight) * 100`, shows once per page view when it crosses 45%, stays dismissed for the rest of that view once closed. Reuses the existing `.dialog`/`.dialog-backdrop` classes from `app.css` and the existing `SubscribeForm` component. Only rendered for anon visitors on ungated posts (`isAnon && !data.gated`) — gated posts already show an inline subscribe wall immediately, so a popup on top of that would be redundant.
+
+### How We Built It
+
+- Added `id="subscribe"` to both of the post page's existing subscribe blocks (the gated-wall block and the "Read more from {name}" block at the bottom) so the nav's `#subscribe` anchor has something to scroll to in either case — these are mutually exclusive (`{#if data.gated}`/`{:else}`), so no duplicate-ID risk.
+- `SubscribePopup` kept deliberately simple: no backdrop-click-to-dismiss (would need `role="button"`/`tabindex`/keydown handling to stay accessible, more machinery than a one-off popup warrants) — just a labeled close button. No persistence across page loads (sessionStorage, cookie) — dismissal only lasts the current page view, since nothing asked for cross-visit suppression.
+- Anon check on the post page uses `page.data.user` from `$app/state` (same source `PublicNav` already reads for its own logged-in check), not `data.user` — the post page's own `+page.server.ts` load doesn't return `user`; it comes from the root `+layout.server.ts`.
+
+### In Scope
+
+- Homepage: excerpt → subtitle.
+- Post-page nav: Subscribe button for anon visitors (Log in stays homepage-only).
+- Post-page: scroll-triggered subscribe popup for anon visitors on ungated posts.
+
+### Out of Scope
+
+- No popup on gated posts (redundant with the existing inline subscribe wall).
+- No cross-visit dismissal persistence — out of scope unless asked.
+
+### Breaking Changes
+
+NONE
+
+### Notes for Future Sessions
+
+- Local e2e verification this session collided with a second Claude Code agent's dev server already bound to the default port 4173 in the sibling `openletter` primary-repo checkout (a completely separate process, correctly left untouched per CLAUDE.md's process-safety rule). Fixed properly rather than worked around: `playwright.config.ts`, `e2e-global-setup.ts`, and `dashboard/settings/page.svelte.e2e.ts` (`BASE` constant) now all resolve the port from `process.env.E2E_PORT`, falling back to `4173` when unset — CI never sets it, so CI behavior is unchanged. Locally, run e.g. `E2E_PORT=4183 bun run test:e2e` when another dev server already holds 4173. Worth keeping this pattern in mind — the settings test file's `BASE` constant already had a comment saying it should track `playwright.config.ts`'s port; it just hadn't been made to do so until now.
+- Hit the by-now-familiar Windows `wrangler types --check` `UV_HANDLE_CLOSING` crash again, and the D1-cold-start `globalSetup: publish post failed with 500` flake again (twice). Same fixes as logged in Hotfix 21: `bunx wrangler types` standalone once, and wipe `.wrangler/state/v3/d1` + reapply migrations before trusting an e2e failure that looks like a genuine app bug. Two dashboard tests (`logs out and re-gates the dashboard`, `shows drafts and published sections`) failed once on a dirty D1 state and passed clean on the very next run with the same code — confirmed flakes, not caused by this diff.
+- No live browser-QA tool (gstack) was available in this session, same as Hotfix 21 — verification relied on the full check/unit/e2e/build suite plus manual code reading. Worth a live look at the post page (nav Subscribe button + scroll popup) next session there's ever doubt.
+
+---
+
 ## Hotfix 21 — Widen article text column
 
 **Date & Time (IST):** 2026-08-01 22:15 IST

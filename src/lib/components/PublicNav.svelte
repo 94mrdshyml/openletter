@@ -5,6 +5,7 @@
 
 	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 	const user = $derived(page.data.user);
+	const isPostPage = $derived(page.url.pathname.startsWith('/p/'));
 </script>
 
 <nav style="border-bottom:3px solid var(--color-accent)">
@@ -20,6 +21,8 @@
 		</a>
 		{#if user}
 			<AccountMenu role={user.role} context="public" />
+		{:else if isPostPage}
+			<a href="#subscribe" class="btn btn-primary" style="white-space:nowrap">Subscribe</a>
 		{:else}
 			<a
 				href={resolve('/login')}

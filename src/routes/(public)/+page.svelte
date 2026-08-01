@@ -65,11 +65,13 @@
 						<div style="font-size:13px;color:var(--color-neutral-500);margin:0 0 8px">
 							{formatPostDate(post.publishedAt!.toISOString().slice(0, 10))}
 						</div>
-						<p
-							style="font-size:15px;color:var(--color-neutral-700);margin:0;line-height:1.55;max-width:580px"
-						>
-							{post.excerpt}
-						</p>
+						{#if post.subtitle}
+							<p
+								style="font-size:15px;color:var(--color-neutral-700);margin:0;line-height:1.55;max-width:580px"
+							>
+								{post.subtitle}
+							</p>
+						{/if}
 					</div>
 				</a>
 			{/each}

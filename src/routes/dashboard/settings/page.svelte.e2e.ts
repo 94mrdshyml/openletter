@@ -5,7 +5,7 @@ import { loginAsTestReader, loginAsTestWriter } from '../../../lib/test/auth';
 // webServer.port). Form actions need a same-origin Origin header or
 // SvelteKit's CSRF check rejects them before authorization is even reached —
 // so sending it is what makes these tests exercise the real auth gate.
-const BASE = 'http://localhost:4173';
+const BASE = `http://localhost:${process.env.E2E_PORT ?? 4173}`;
 
 test('stays on /dashboard/settings when navigated to', async ({ page }) => {
 	await loginAsTestWriter(page);
