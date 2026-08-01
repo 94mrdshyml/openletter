@@ -45,7 +45,9 @@
 
 <div style="background:var(--color-bg);min-height:700px;position:relative">
 	<form method="POST" enctype="multipart/form-data">
-		<nav style="border-bottom:3px solid var(--color-accent)">
+		<nav
+			style="border-bottom:3px solid var(--color-accent);position:sticky;top:0;z-index:20;background:var(--color-bg)"
+		>
 			<div
 				class="container-wide"
 				style="display:flex;align-items:center;gap:16px;padding:12px 40px;flex-wrap:wrap"
@@ -86,7 +88,7 @@
 			</div>
 		</nav>
 
-		<div class="container" style="padding:48px 40px">
+		<div class="container-wide" style="padding:48px 40px">
 			<PostEditor
 				bind:title
 				bind:subtitle

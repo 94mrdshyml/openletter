@@ -2,6 +2,40 @@
 
 ---
 
+## Hotfix 19 — Redesign /dashboard/posts/new: two-column editor layout
+
+**Date & Time (IST):** 2026-07-28 02:50 IST
+**Status:** Completed
+**Branch:** feat/post-editor-redesign
+
+### What We Built
+
+User flagged the just-shipped post editor UI as not matching the site's design quality — everything (cover image, title, body, then "Post settings": slug/excerpt/audience) was stacked in a single narrow column, so the writer had to scroll past the whole body just to reach basic settings or the Save/Publish buttons. Redesigned into a two-column layout: the writing surface (cover image, title, subtitle, toolbar, Tiptap body) takes ~65% on the left; "Post settings" (slug, excerpt, audience) is a sticky sidebar card on the right, always visible without scrolling. The top action bar (Dashboard back-link, Save draft, Publish/Update) is now sticky too.
+
+### How We Built It
+
+- `PostEditor.svelte`: wrapped existing content in `.editor-layout` (CSS grid, `grid-template-columns: minmax(0, 1.85fr) minmax(280px, 1fr)` — approximates the requested 65/35 split while keeping the sidebar a sane minimum width) and `.editor-main` / `.editor-sidebar`. Below 860px the grid collapses to a single column and the sidebar's `position: sticky` becomes `static` (media query in a `<style>` block — no layout logic changed, purely visual regrouping of the exact same fields/bindings).
+- `PostEditorPage.svelte`: the wrapping `<nav>` (back-link/Save/Publish) gets `position:sticky;top:0;z-index:20` with an explicit background so it doesn't go transparent while scrolled-under content shows through. Content wrapper switched from `.container` (860px) to `.container-wide` (1120px) to give the two-column grid room.
+- No changes to `PostEditor`'s props, bindings, form field names, or `post-form.ts` server logic — this was a pure layout/CSS change on top of the existing (working, already-tested) editor.
+
+### In Scope
+
+- Two-column desktop layout (~65/35), sticky top action bar, sticky settings sidebar, single-column mobile fallback below 860px.
+- Verified via gstack browse (not just code review): screenshotted the desktop layout, then typed ~5000 characters into the body and scrolled to confirm the action bar and settings sidebar both stay pinned in view while the body scrolls underneath — directly verifies the "no scrolling for basic things" requirement. Also screenshotted the 390px mobile stack and checked for console errors (none).
+
+### Out of Scope
+
+- No visual/content changes to the toolbar, Tiptap body styling, publish dialog, or any other post-editor feature — layout only.
+- `AdminNav`'s own tab-row overflow behavior at very narrow widths (already handled by an earlier hotfix) — untouched.
+
+### Breaking Changes
+
+NONE — same fields, same bindings, same form action names on both `/dashboard/posts/new` and `/dashboard/posts/[id]` (both render through the shared `PostEditorPage`/`PostEditor` components, so both got the redesign automatically).
+
+### Notes for Future Sessions
+
+- `.editor-sidebar`'s sticky `top: 88px` is a ballpark clearing the `PostEditorPage` nav's height (~60px) plus breathing room — not pixel-measured against a real render at every viewport. If a future session tweaks the nav's padding/height, double-check this offset still clears it.
+
 ## Hotfix 18 — Collapse nav account links into a single AccountMenu
 
 **Date & Time (IST):** 2026-07-27 13:55 IST
