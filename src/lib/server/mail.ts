@@ -1,4 +1,7 @@
+import { sql } from 'drizzle-orm';
 import { getDb } from './db';
+import { subscriber } from './db/schema';
+import { sendPostBroadcast } from './resend';
 
 // Inline-styled, table-based layout — email clients don't load stylesheets
 // or support modern CSS, so every rule lives on the element itself and
@@ -164,6 +167,45 @@ export async function sendMagicLinkEmail(env: Env, to: string, url: string) {
 			url
 		);
 	}
+}
+
+// Called once per real (non-scheduled) publish — see the publish actions in
+// dashboard/posts/new and dashboard/posts/[id]. Fails open like the rest of
+// this file: a missing/broken Resend config means the post still publishes,
+// it just doesn't get emailed (same resilience pattern as sendEmail above).
+export async function sendPostPublishedBroadcast(
+	env: Env,
+	origin: string,
+	post: { title: string; subtitle: string | null; excerpt: string | null; slug: string }
+): Promise<{ broadcastId: string; sentCount: number } | null> {
+	const db = getDb(env.DB);
+	const pub = await db.query.publication.findFirst();
+	if (!pub?.resendApiKey || !pub?.resendFromEmail || !pub?.resendSegmentId) return null;
+
+	const [{ count: sentCount }] = await db.select({ count: sql<number>`count(*)` }).from(subscriber);
+	if (sentCount === 0) return null;
+
+	const postUrl = `${origin}/p/${post.slug}`;
+	const html = renderEmailHtml(
+		pub.name,
+		pub.logoUrl,
+		post.title,
+		post.excerpt || post.subtitle || 'A new post is up.',
+		'Read now',
+		postUrl
+	);
+
+	const broadcastId = await sendPostBroadcast(
+		pub.resendApiKey,
+		pub.resendSegmentId,
+		pub.resendTopicId,
+		`${pub.resendFromName || pub.name} <${pub.resendFromEmail}>`,
+		post.title,
+		html
+	);
+	if (!broadcastId) return null;
+
+	return { broadcastId, sentCount };
 }
 
 export async function sendInvitationEmail(env: Env, to: string, url: string) {

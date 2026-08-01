@@ -1,5 +1,5 @@
 import { relations, sql } from 'drizzle-orm';
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { generateId } from '../id';
 
 export const publication = sqliteTable('publication', {
@@ -30,6 +30,13 @@ export const publication = sqliteTable('publication', {
 	resendFromEmail: text('resend_from_email'),
 	resendSegmentId: text('resend_segment_id'),
 	resendTopicId: text('resend_topic_id'),
+	// Signing secret for the webhook the writer manually creates in their
+	// Resend dashboard (pointed at /api/webhooks/resend), pasted here like
+	// the other Resend fields above — never an env var/Cloudflare secret,
+	// never returned to the client. It's what lets the webhook endpoint
+	// verify a request actually came from Resend before trusting its
+	// open/click event data (see src/lib/server/webhook.ts).
+	resendWebhookSecret: text('resend_webhook_secret'),
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.$defaultFn(() => new Date())
@@ -72,6 +79,16 @@ export const post = sqliteTable('post', {
 	// publishedAt; every public read filters `publishedAt <= now`, so it's
 	// invisible until the moment arrives. Purely a query-time check, no cron.
 	publishedAt: integer('published_at', { mode: 'timestamp' }),
+	// Set once, right after a real (non-scheduled) publish successfully sends
+	// a Resend Broadcast to the segment/topic — see mail.ts's
+	// sendPostPublishedBroadcast. Both stay null for drafts, scheduled posts
+	// (no send happens until the scheduled time — there's no cron to fire it
+	// later, a known gap), and posts published before this column existed.
+	resendBroadcastId: text('resend_broadcast_id'),
+	// Subscriber count at the moment the broadcast was sent — the
+	// denominator for this post's open/click rate in dashboard/analytics,
+	// since the live subscriber count drifts after the fact.
+	sentCount: integer('sent_count'),
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.$defaultFn(() => new Date()),
@@ -90,6 +107,34 @@ export const subscriber = sqliteTable('subscriber', {
 		.notNull()
 		.$defaultFn(() => new Date())
 });
+
+// One row per (post, recipient, event type) — the webhook handler inserts
+// with onConflictDoNothing() against the unique index below, so a reader
+// opening the same email five times only ever produces one row. Real counts
+// (open rate, click rate) are COUNT(*) queries against this table, not
+// counters on `post`, so a duplicate delivery from Resend can never
+// double-count. Populated only by src/routes/api/webhooks/resend — never
+// written from anywhere else, and never logged (recipientEmail is PII).
+export const postEmailEvent = sqliteTable(
+	'post_email_event',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => generateId('pev')),
+		postId: text('post_id')
+			.notNull()
+			.references(() => post.id, { onDelete: 'cascade' }),
+		type: text('type', { enum: ['opened', 'clicked'] }).notNull(),
+		recipientEmail: text('recipient_email').notNull(),
+		createdAt: integer('created_at', { mode: 'timestamp' })
+			.notNull()
+			.$defaultFn(() => new Date())
+	},
+	(table) => [
+		uniqueIndex('post_email_event_unique').on(table.postId, table.type, table.recipientEmail),
+		index('post_email_event_post_idx').on(table.postId)
+	]
+);
 
 // Better Auth's own tables, generated via `better-auth generate` against the
 // magicLink plugin, then folded in here. IDs are assigned by Better Auth's

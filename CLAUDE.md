@@ -155,16 +155,17 @@ Every primary key, across every table (including Better Auth's own `user`/`sessi
 
 Prefixes (extend this list as new entities are added — don't invent a new prefix without adding it here):
 
-| Prefix  | Entity                                          |
-| ------- | ----------------------------------------------- |
-| `pub_`  | Publication                                     |
-| `post_` | Post                                            |
-| `sub_`  | Subscriber                                      |
-| `user_` | Writer/user (Better Auth `user`)                |
-| `sess_` | Session (Better Auth `session`)                 |
-| `acct_` | Account (Better Auth `account`)                 |
-| `ver_`  | Verification token (Better Auth `verification`) |
-| `inv_`  | Admin invitation                                |
+| Prefix  | Entity                                             |
+| ------- | -------------------------------------------------- |
+| `pub_`  | Publication                                        |
+| `post_` | Post                                               |
+| `sub_`  | Subscriber                                         |
+| `user_` | Writer/user (Better Auth `user`)                   |
+| `sess_` | Session (Better Auth `session`)                    |
+| `acct_` | Account (Better Auth `account`)                    |
+| `ver_`  | Verification token (Better Auth `verification`)    |
+| `inv_`  | Admin invitation                                   |
+| `pev_`  | Post email event (open/click, from Resend webhook) |
 
 Implementation rule: one shared ID-generation helper (e.g. `src/lib/server/id.ts`) that takes a prefix and returns the full ID — no ad hoc per-table ID logic. Better Auth supports custom ID generation via its `advanced.database.generateId` config; wire it to the same helper so Better Auth's own tables match the scheme instead of falling back to its default IDs.
 
@@ -296,6 +297,9 @@ Accumulates across sessions. Read this before touching related code.
 - **Single Topic per publication — resolved, not open.** `PRD.md` §10 settled this: one Resend Segment + one Topic per publication. Don't build multi-category Topic UI without a fresh explicit ask — it would reintroduce exactly the config surface the wedge is meant to remove.
 - **Resend config lives in D1, not env vars, and the API key is a deliberate exception to the "secrets are Cloudflare secrets" rule.** The writer supplies their own API key, from name/email, and Segment id as fields on `/setup` (editable later in `dashboard/settings`) — not `wrangler secret put`, not auto-created by the app. Two reasons: (1) it solves setup's own chicken-and-egg problem — the founding admin's own first magic-link email needs a working Resend config to send, and that config is inserted in the same `/setup` request before the email goes out; (2) a Resend account's Segments are capped by plan and shared account-wide across every project on it, not scoped per-app, so auto-creating one on every `/setup` run collided with that cap in practice. The Topic has no such cap, so it's still auto-created once, during `/setup`, using the just-submitted key. `resendApiKey` must never be returned to the client — see `+layout.server.ts` (explicit column selection) and `dashboard/settings/+page.server.ts` (destructures it out of `load`, only ever partially updates it on save if a new value is actually submitted). Don't reintroduce `RESEND_API_KEY`-as-env-var or auto-created Segments without a fresh explicit ask.
 - **Custom domain support** — also an open question in `PRD.md` §10. Don't assume subdomain-only or custom-domain-only without checking current status.
+- **Resend's Broadcast API has zero engagement-stats fields.** Checked directly against Resend's API reference: create/get/list `/broadcasts` return only `id`/`status`/`created_at`/`scheduled_at`/`sent_at`-type fields — no opens, clicks, or delivered counts anywhere. Real open/click numbers only exist as `email.opened`/`email.clicked` webhook events (Svix-signed). Don't go looking for a stats GET endpoint that doesn't exist — see `src/lib/server/webhook.ts` and `src/routes/api/webhooks/resend`.
+- **Resend webhooks are signed via Svix, verified manually, not via the `svix` npm package.** `svix`'s Node-oriented internals aren't guaranteed to run cleanly on Workers, so `src/lib/server/webhook.ts` implements the documented algorithm directly against Web Crypto (~20 lines: HMAC-SHA256 over `${svix-id}.${svix-timestamp}.${body}`, base64-compared against the `svix-signature` header's `v1,...` entries, plus a 5-minute timestamp tolerance against replay). The signing secret (`resendWebhookSecret`) follows the exact same pattern as `resendApiKey` above — writer-pasted in `dashboard/settings`, never returned to the client.
+- **Scheduled posts don't send an email — no cron exists in this app.** See `PRD.md` §10. A "Publish now" publish sends immediately; "Schedule for later" only sets a future `publishedAt` that gates public visibility at query time, with no later trigger to fire the send. Don't assume publishing = emailing without checking whether the specific publish was immediate or scheduled.
 
 ---
 

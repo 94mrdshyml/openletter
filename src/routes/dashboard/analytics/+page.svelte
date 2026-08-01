@@ -1,12 +1,16 @@
 <script lang="ts">
-	import { publication, postPerformance, subscriberGrowth } from '$lib/mock-data';
+	import { page } from '$app/state';
+	import { formatPostDateShort } from '$lib/format';
+	import type { PageProps } from './$types';
 
-	const monthLabels = ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
-	const maxGrowth = Math.max(...subscriberGrowth);
+	let { data }: PageProps = $props();
+
+	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
+	const maxGrowth = $derived(Math.max(1, ...data.subscriberGrowth));
 </script>
 
 <svelte:head>
-	<title>Analytics · {publication.name}</title>
+	<title>Analytics · {name}</title>
 </svelte:head>
 
 <div class="container-wide" style="padding:40px">
@@ -22,10 +26,10 @@
 			<div
 				style="font-family:var(--font-heading);font-weight:800;font-size:36px;line-height:1;letter-spacing:-0.03em"
 			>
-				{publication.subscriberCount}
+				{data.subscriberCount}
 			</div>
 			<div style="font-size:12px;color:var(--color-accent);margin-top:6px">
-				+{publication.analytics.newThisWeek} this week
+				+{data.newThisWeek} this week
 			</div>
 		</div>
 		<div style="padding:24px;border-right:1px solid var(--color-divider)">
@@ -37,9 +41,11 @@
 			<div
 				style="font-family:var(--font-heading);font-weight:800;font-size:36px;line-height:1;letter-spacing:-0.03em"
 			>
-				{publication.analytics.avgOpenRate}%
+				{data.avgOpenRate}%
 			</div>
-			<div style="font-size:12px;color:var(--color-neutral-500);margin-top:6px">Last 30 days</div>
+			<div style="font-size:12px;color:var(--color-neutral-500);margin-top:6px">
+				Across {data.postPerformance.length} sent post{data.postPerformance.length === 1 ? '' : 's'}
+			</div>
 		</div>
 		<div style="padding:24px;border-right:1px solid var(--color-divider)">
 			<div
@@ -50,9 +56,9 @@
 			<div
 				style="font-family:var(--font-heading);font-weight:800;font-size:36px;line-height:1;letter-spacing:-0.03em"
 			>
-				{publication.analytics.postsPublished}
+				{data.postsPublished}
 			</div>
-			<div style="font-size:12px;color:var(--color-neutral-500);margin-top:6px">Since Feb 2026</div>
+			<div style="font-size:12px;color:var(--color-neutral-500);margin-top:6px">All time</div>
 		</div>
 		<div style="padding:24px">
 			<div
@@ -63,9 +69,11 @@
 			<div
 				style="font-family:var(--font-heading);font-weight:800;font-size:36px;line-height:1;letter-spacing:-0.03em"
 			>
-				{publication.analytics.avgClickRate}%
+				{data.avgClickRate}%
 			</div>
-			<div style="font-size:12px;color:var(--color-neutral-500);margin-top:6px">Last 30 days</div>
+			<div style="font-size:12px;color:var(--color-neutral-500);margin-top:6px">
+				Across {data.postPerformance.length} sent post{data.postPerformance.length === 1 ? '' : 's'}
+			</div>
 		</div>
 	</div>
 
@@ -79,9 +87,9 @@
 			style="border:2px solid var(--color-divider);padding:24px;height:200px;position:relative;overflow:hidden"
 		>
 			<div style="display:flex;align-items:flex-end;gap:4px;height:100%;padding-bottom:24px">
-				{#each subscriberGrowth as value, i (i)}
+				{#each data.subscriberGrowth as value, i (i)}
 					<div
-						style="flex:1;background:{i === subscriberGrowth.length - 1
+						style="flex:1;background:{i === data.subscriberGrowth.length - 1
 							? 'var(--color-accent)'
 							: 'var(--color-neutral-200)'};height:{(value / maxGrowth) * 100}%"
 					></div>
@@ -90,7 +98,7 @@
 			<div
 				style="position:absolute;bottom:0;left:24px;right:24px;display:flex;justify-content:space-between;font-size:10px;color:var(--color-neutral-400);letter-spacing:0.04em"
 			>
-				{#each monthLabels as label (label)}
+				{#each data.monthLabels as label, i (i)}
 					<span>{label}</span>
 				{/each}
 			</div>
@@ -102,27 +110,34 @@
 	>
 		Post performance
 	</h6>
-	<table class="table">
-		<thead>
-			<tr>
-				<th style="width:45%">Post</th>
-				<th>Sent</th>
-				<th>Opened</th>
-				<th>Open rate</th>
-				<th>Clicks</th>
-			</tr>
-		</thead>
-		<tbody>
-			{#each postPerformance as row (row.title)}
+	{#if data.postPerformance.length === 0}
+		<p style="font-size:14px;color:var(--color-neutral-500)">
+			No posts sent yet. Publishing a post emails your subscribers and its stats will show up here.
+		</p>
+	{:else}
+		<table class="table">
+			<thead>
 				<tr>
-					<td style="font-family:var(--font-heading);font-weight:800;font-size:14px">{row.title}</td
-					>
-					<td>{row.date}</td>
-					<td>{row.opened}</td>
-					<td>{row.openRate}%</td>
-					<td>{row.clicks}</td>
+					<th style="width:45%">Post</th>
+					<th>Sent</th>
+					<th>Opened</th>
+					<th>Open rate</th>
+					<th>Clicks</th>
 				</tr>
-			{/each}
-		</tbody>
-	</table>
+			</thead>
+			<tbody>
+				{#each data.postPerformance as row (row.title)}
+					<tr>
+						<td style="font-family:var(--font-heading);font-weight:800;font-size:14px"
+							>{row.title}</td
+						>
+						<td>{formatPostDateShort(row.publishedAt.toISOString().slice(0, 10))}</td>
+						<td>{row.opened}</td>
+						<td>{row.openRate}%</td>
+						<td>{row.clicks}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	{/if}
 </div>

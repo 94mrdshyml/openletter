@@ -43,7 +43,7 @@ Two implementation notes carried over from stack discussion:
 1. Write/edit a post in the editor (draft state).
 2. Hit Publish.
 3. Post becomes a public web page + appears on the publication homepage + RSS feed.
-4. Post is sent as an email to the relevant Resend Segment/Topic.
+4. Post is sent as an email to the relevant Resend Segment/Topic — immediately, for a real ("Publish now") publish. A "Schedule for later" post does **not** currently send an email: there's no cron trigger to fire it when the scheduled time arrives (see §10).
 
 **Reader: subscribe loop**
 
@@ -62,9 +62,11 @@ Two implementation notes carried over from stack discussion:
 | 4   | Subscribe flow          | Email capture → Better Auth magic link → Resend Segment/Topic membership.                                                                            |
 | 5   | Publish → email         | Publishing a post triggers a send to the associated Segment/Topic via Resend.                                                                        |
 | 6   | Unsubscribe/preferences | Reader-facing link into Resend's Topic preference page.                                                                                              |
-| 7   | Writer dashboard        | Subscriber count, post list, open/click stats sourced directly from Resend's own analytics (no custom tracking build).                               |
+| 7   | Writer dashboard        | Subscriber count, post list, open/click stats sourced directly from Resend's own analytics (no custom tracking build).<sup>†</sup>                   |
 | 8   | CLI deploy              | One command: provisions Worker, D1 (+ migrations), R2 bucket; prompts for Resend API key and Better Auth secret; ends in a working publication.      |
 | 9   | Personalization         | Brand accent color and heading/body fonts (curated Google Fonts list), editable in `dashboard/settings`. See §7 for what this deliberately excludes. |
+
+<sup>†</sup> Resend's Broadcast API returns zero engagement fields on create/get/list (checked directly against their API reference) — open/click counts only exist as `email.opened`/`email.clicked` webhook events. "No custom tracking build" means OpenLetter never runs its own open-pixel or link-rewriting — Resend's own mechanism does that — but a webhook receiver (`/api/webhooks/resend`, signature-verified) and a small event table are required to durably record what Resend reports. See `src/lib/server/webhook.ts` and `docs/SESSION_LOG.md` Session 19.
 
 ## 7. Explicitly Out of Scope for V1
 
@@ -87,6 +89,6 @@ Two implementation notes carried over from stack discussion:
 ## 10. Open Questions
 
 - Custom domain support in v1, or subdomain-only (e.g. `*.workers.dev`) until v1.1?
-- What's the minimum viable writer dashboard — is a raw subscriber count enough, or does open/click data need to be visible in v1 for the dashboard to feel credible?
+- **Scheduled posts don't send an email.** "Schedule for later" (the post editor's publish dialog) sets a future `publishedAt` and relies purely on query-time filtering for public visibility — there's no cron trigger anywhere in the app. Publishing itself now sends immediately for a real ("Publish now") publish, but a scheduled post's eventual becoming-visible moment has no corresponding event to fire the email from. Fixing this needs a Cloudflare Cron Trigger + `scheduled()` handler, deliberately out of scope for the session that added the send pipeline (see `docs/SESSION_LOG.md` Session 19) — a future session's job if this gap matters enough.
 
-**Resolved:** Single Topic per publication by default, not multiple newsletter categories — matches the deployment-friction wedge (§2), since prompting writers to define categories at setup is exactly the kind of configuration surface OpenLetter is meant to remove. The writer supplies their own Resend API key, from name/email, and Segment id as part of `/setup` (editable later in `dashboard/settings`) — not env vars, not auto-created by the app. The Topic ("Newsletter") is the one exception: it's auto-created once, during `/setup`, since Topics (unlike Segments) aren't capped by Resend's plan. See `src/lib/server/resend.ts` and `src/lib/server/mail.ts`.
+**Resolved:** Single Topic per publication by default, not multiple newsletter categories — matches the deployment-friction wedge (§2), since prompting writers to define categories at setup is exactly the kind of configuration surface OpenLetter is meant to remove. The writer supplies their own Resend API key, from name/email, and Segment id as part of `/setup` (editable later in `dashboard/settings`) — not env vars, not auto-created by the app. The Topic ("Newsletter") is the one exception: it's auto-created once, during `/setup`, since Topics (unlike Segments) aren't capped by Resend's plan. See `src/lib/server/resend.ts` and `src/lib/server/mail.ts`. Writer dashboard open/click stats: resolved as real, via a Resend webhook (`/api/webhooks/resend`) recording `email.opened`/`email.clicked` events — see feature #7's footnote above.

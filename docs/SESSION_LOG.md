@@ -2,6 +2,68 @@
 
 ---
 
+## Session 19 — Real publish → email + webhook-backed open/click analytics
+
+**Date & Time (IST):** 2026-08-02 05:30 IST
+**Status:** Completed
+**Branch:** feature/session-19-publish-email-analytics
+
+### What We Built
+
+User asked "what should we build next?"; recommended real analytics data over the CLI (analytics being the smaller, faster of two big gaps). User picked analytics — but investigating `dashboard/analytics` surfaced a bigger problem first: publishing a post never emailed anyone at all (`dashboard/posts/new/+page.server.ts`'s `publish` action just wrote to D1). PRD.md feature #5 ("Publish → email") was completely unbuilt, so there was nothing for real analytics to report on. Confirmed with the user via AskUserQuestion to build the send pipeline first, then analytics on top of it — not analytics-with-stubbed-numbers.
+
+A second finding during research changed the shape of the analytics half: Resend's Broadcast API (checked directly against their API reference — create/get/list `/broadcasts`) returns **zero** engagement fields. No opens, clicks, or delivered counts anywhere via the API. The only way to get real numbers is Resend's `email.opened`/`email.clicked` webhooks. Confirmed with the user (a second AskUserQuestion) to go the full distance: a signature-verified webhook endpoint + an event table, rather than shipping analytics with open/click permanently stuck at "—".
+
+A third fork: the post editor already has a real "Schedule for later" checkbox, but this app has no cron anywhere — a scheduled post is just a future `publishedAt` gated at query time. Confirmed with the user (third AskUserQuestion) to send immediately for real publishes and skip the email entirely for scheduled ones this session, rather than also building Cloudflare Cron Trigger infra. Documented as an open gap in `PRD.md` §10, not silently patched over.
+
+### How We Built It
+
+- **Schema** (migration `0008_odd_thundra.sql`, pure additive — one `CREATE TABLE`, two indexes, three `ALTER TABLE ADD COLUMN`):
+  - `publication.resendWebhookSecret` — the Svix signing secret, writer-pasted in `dashboard/settings` exactly like `resendApiKey` (never returned to the client, blank submission means "unchanged").
+  - `post.resendBroadcastId` / `post.sentCount` — set once, right after a real (non-scheduled, not-already-published) publish successfully sends. `sentCount` is a subscriber-count snapshot at send time, used as the denominator for that post's open/click rate later (the live subscriber count drifts).
+  - `post_email_event` (new table, prefix `pev_`, added to `CLAUDE.md`'s ID table) — one row per `(postId, type, recipientEmail)`, a unique index doing the dedup work. The webhook handler inserts with `.onConflictDoNothing()`, so a reader opening the same email five times produces one row, not five. Real counts are `COUNT(*)` queries against this table at analytics-read time, not counters mutated on `post` — a duplicate webhook delivery from Resend can never double-count.
+- **`src/lib/server/resend.ts`**: `sendPostBroadcast()` — `POST /broadcasts` with `segment_id`/`topic_id`/`send: true`, creates and sends in one call. Confirmed via Resend's docs that `segment_id` (not `audience_id`) is the live field name post-Audiences-deprecation, matching this project's existing terminology.
+- **`src/lib/server/mail.ts`**: `sendPostPublishedBroadcast()` — snapshots the subscriber count, builds the notification email with the existing `renderEmailHtml()` (same template as magic-link/invite emails), sends the broadcast, returns `{broadcastId, sentCount}` or `null`. Fails open like every other send in this file — a broken/missing Resend config means the post still publishes, it just doesn't get emailed.
+- **Publish actions** (`dashboard/posts/new/+page.server.ts`, `dashboard/posts/[id]/+page.server.ts`): both now compute `isScheduled` and only call the broadcast send when the publish is real and immediate. The `[id]` action additionally guards on `!alreadyPublished` — re-saving an already-published post (fixing a typo) must never re-notify subscribers.
+- **`src/lib/server/webhook.ts`** (new): manual Svix signature verification against Web Crypto (`crypto.subtle`), not the `svix` npm package — its Node-oriented internals aren't guaranteed to run cleanly on Workers, and the algorithm itself is ~20 lines (HMAC-SHA256 over `${svix-id}.${svix-timestamp}.${body}`, base64-compared against the `svix-signature` header's space-delimited `v1,...` entries) plus a 5-minute timestamp tolerance against replay.
+- **`src/routes/api/webhooks/resend/+server.ts`** (new, public): looks up the publication's `resendWebhookSecret`, 404s if unset (writer hasn't wired it up), 401s on a bad signature, otherwise matches `data.broadcast_id` to a post and records the event. Never logs `recipientEmail` (PII, per `CLAUDE.md`'s Security Rules) even though it's briefly in scope.
+- **`dashboard/settings`**: new "Resend webhook signing secret" field, same masked/never-round-tripped pattern as the API key, with inline instructions for what to paste into Resend's own webhook UI.
+- **`dashboard/analytics`** (new `+page.server.ts` — this route had none before): real subscriber count/new-this-week, real published-post count, `postPerformance` computed by joining published posts against `post_email_event` counts (excluding posts with `sentCount: null` — never sent, not a 0%), `avgOpenRate`/`avgClickRate` averaged across sent posts only, and a 24-week cumulative subscriber-growth chart computed in JS from raw `subscribedAt` timestamps (self-hosted single-publication scale, not worth SQLite date-bucketing SQL). `mock-data.ts` was this route's last consumer — deleted, fully orphaned.
+
+### Testing
+
+- `src/lib/server/webhook.spec.ts` (new, 6 tests): valid signature, multi-signature header, tampered body, wrong secret, missing headers, stale timestamp — the security-critical piece, covered at the unit level with a real HMAC computed the same way the implementation does it.
+- `src/routes/api/webhooks/resend/webhooks.e2e.ts` (new): 404 with no secret configured, 401 with a bad signature once one is, 200 with a valid signature (computed in-test) against a non-matching `broadcast_id` (graceful no-op).
+- `dashboard/settings`: new test for the webhook secret field's save/blank-keeps-current behavior.
+- `dashboard/posts/new`: new test publishing with a real (but fake-keyed) Resend Segment configured — the actual network call to `api.resend.com` genuinely fails auth, and the post still publishes. Exercises the fail-open path for real, not mocked.
+- `dashboard/analytics`: rewrote both existing tests for the new reality — e2e's seeded publication never configures a Resend Segment (see `e2e-global-setup.ts`), so the seeded posts never actually send, and the empty state ("No posts sent yet") is what a fresh install actually looks like. Not something worth faking around.
+- **Full publish → broadcast → webhook → real-numbers pipeline is not end-to-end tested** — per `CLAUDE.md`'s E2E carve-out for tests that depend on live Resend delivery. It would require a real Resend API key succeeding at broadcast creation in CI, which doesn't exist. Manual verification checklist for whoever has a real Resend account:
+  1. Set a real API key/Segment id/Topic id/webhook secret in `dashboard/settings`, add a webhook in Resend's dashboard pointed at `https://<domain>/api/webhooks/resend` subscribed to `email.opened`/`email.clicked`.
+  2. Publish a post with at least one real subscriber. Confirm `post.resendBroadcastId`/`sentCount` get set (check D1) and the email actually arrives.
+  3. Open the email, click a link. Confirm rows land in `post_email_event` and `dashboard/analytics` shows a non-zero open/click rate for that post.
+
+### In Scope
+
+- Real publish → Resend Broadcast send, webhook-based open/click event recording, `dashboard/analytics` wired to real data end-to-end, `mock-data.ts` deleted, `PRD.md`/`CLAUDE.md` updated.
+
+### Out of Scope
+
+- **Scheduled-post emails** — explicitly confirmed with the user to skip. No cron trigger exists in this app; fixing this needs a Cloudflare Cron Trigger + `scheduled()` handler, a separate piece of infra. Documented as an open item in `PRD.md` §10.
+- CLI deploy tool (PRD feature #8) — the other big gap identified this session, still entirely unbuilt.
+
+### Breaking Changes
+
+NONE — all schema changes are additive; existing published posts simply have `resendBroadcastId`/`sentCount: null` and are excluded from analytics averages rather than shown with misleading numbers.
+
+### Notes for Future Sessions
+
+- If a future session builds scheduled-post sending, it needs a Cloudflare Cron Trigger (`wrangler.jsonc` `triggers.crons`) + a `scheduled()` handler that finds due-but-unsent posts and calls `sendPostPublishedBroadcast` — budget for idempotency (a post could be picked up twice if the cron overlaps a slow run).
+- `src/lib/server/webhook.ts`'s manual Svix verification is now precedent for any future webhook receiver in this app — don't reach for the `svix` npm package on Workers without checking it actually works there first.
+- The `post_email_event` table only ever grows — no session has added retention/cleanup. Fine at self-hosted single-publication scale for now; flag if it ever needs bounding.
+- Webhook signing secret is one more manual setup step for writers (create the webhook in Resend's dashboard, paste the secret) — not wired into `/setup` or the CLI (which doesn't exist yet). Worth revisiting once the CLI session happens, since that's the natural place to prompt for it alongside the other Resend fields.
+
+---
+
 ## Session 18 — Notion-style editor: slash menu + floating bubble menu
 
 **Date & Time (IST):** 2026-08-02 03:15 IST

@@ -48,3 +48,33 @@ export async function syncSubscriberContact(
 		return null;
 	}
 }
+
+// Creates and immediately sends a Broadcast to the publication's Segment
+// (scoped to its Topic, if set) — this is the actual "publish → email" send,
+// called once per real publish from mail.ts's sendPostPublishedBroadcast.
+// Resend's broadcast endpoints return no engagement stats (checked create/
+// get/list) — open and click counts only exist as webhook events, recorded
+// separately by src/routes/api/webhooks/resend.
+export async function sendPostBroadcast(
+	apiKey: string,
+	segmentId: string,
+	topicId: string | null,
+	from: string,
+	subject: string,
+	html: string
+): Promise<string | null> {
+	try {
+		const broadcast = await resendFetch(apiKey, '/broadcasts', 'POST', {
+			segment_id: segmentId,
+			...(topicId ? { topic_id: topicId } : {}),
+			from,
+			subject,
+			html,
+			send: true
+		});
+		return broadcast.id;
+	} catch {
+		console.error('Failed to send post broadcast');
+		return null;
+	}
+}

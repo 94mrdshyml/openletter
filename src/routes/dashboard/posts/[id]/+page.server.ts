@@ -4,6 +4,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
 import { post, subscriber } from '$lib/server/db/schema';
 import { parsePostForm } from '$lib/server/post-form';
+import { sendPostPublishedBroadcast } from '$lib/server/mail';
 
 // Every action authorizes itself rather than trusting the /dashboard gate in
 // hooks.server.ts — see docs/SECURITY_AUDIT.md F-01. The gate covers this
@@ -46,16 +47,17 @@ export const actions: Actions = {
 			.where(eq(post.id, params.id));
 		return { saved: true };
 	},
-	publish: async ({ request, platform, params, locals }) => {
+	publish: async ({ request, platform, params, locals, url }) => {
 		requireAdmin(locals);
 		const env = platform!.env;
 		const db = getDb(env.DB);
 		const parsed = await parsePostForm(request, env);
 		const existing = await db.query.post.findFirst({ where: eq(post.id, params.id) });
 		const alreadyPublished = existing?.status === 'published';
+		const isScheduled = !!parsed.scheduledAt && parsed.scheduledAt > new Date();
 		const publishedAt = alreadyPublished
 			? existing.publishedAt
-			: parsed.scheduledAt && parsed.scheduledAt > new Date()
+			: isScheduled
 				? parsed.scheduledAt
 				: new Date();
 
@@ -74,6 +76,25 @@ export const actions: Actions = {
 				updatedAt: new Date()
 			})
 			.where(eq(post.id, params.id));
+
+		// Only a genuinely new publish (draft → published, happening now, not
+		// scheduled) sends an email — re-saving an already-published post must
+		// never re-notify subscribers just because the writer fixed a typo.
+		if (!alreadyPublished && !isScheduled) {
+			const sent = await sendPostPublishedBroadcast(env, url.origin, {
+				title: parsed.title,
+				subtitle: parsed.subtitle,
+				excerpt: parsed.excerpt,
+				slug: parsed.slug
+			});
+			if (sent) {
+				await db
+					.update(post)
+					.set({ resendBroadcastId: sent.broadcastId, sentCount: sent.sentCount })
+					.where(eq(post.id, params.id));
+			}
+		}
+
 		return { published: true };
 	}
 };
