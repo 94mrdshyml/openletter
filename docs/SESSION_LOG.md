@@ -2,6 +2,49 @@
 
 ---
 
+## Hotfix 23 — Fold Subscribers into Analytics
+
+**Date & Time (IST):** 2026-08-02 01:15 IST
+**Status:** Completed
+**Branch:** feature/session-subscribers-into-analytics
+
+### What We Built
+
+The previous session (#20, PR #40) had added a standalone "Subscribers" tab/route (`dashboard/subscribers`) to the admin nav. The user felt the nav was accumulating separate links again and asked for the subscriber list to live inside the Analytics page instead, opening when the "Total subscribers" stat is clicked — plus a UI redesign: the subscriber list should match the visual style of the Posts list (not a `<table>`), be more breathable, and show each subscriber's DiceBear avatar right before their identifier (email — the subscriber model has no name field).
+
+- `dashboard/subscribers/` route deleted entirely (`+page.svelte`, `+page.server.ts`, its e2e spec).
+- `AdminNav` back to 4 tabs (dashboard/analytics/posts/settings); `dashboard/+layout.svelte`'s `current` derivation no longer has a `subscribers` case.
+- `dashboard/analytics/+page.server.ts`: absorbed the old subscribers page's per-subscriber received/opened/clicked computation. The existing `allSubscribers` query (previously `columns: { subscribedAt: true }`, used only for the growth chart) now fetches full rows and does double duty for both the chart and the list — removed the separate `count(*)` query for `subscriberCount` in favor of `allSubscribers.length`, since the fuller query makes it redundant.
+- `dashboard/analytics/+page.svelte`: the "Total subscribers" stat card is now a `<button>` (`showSubscribers` state) that toggles a subscriber list section styled like `dashboard/posts` — flex rows with a bottom divider, not a `<table>` — each row showing a 32px DiceBear pixel-art avatar (`https://api.dicebear.com/10.x/pixel-art/svg?seed=<email>`, same pattern as `my-profile`), the email, subscribed date, received/opened/clicked counts, and an "Unsubscribed" tag where applicable.
+
+### How We Built It
+
+- Read `my-profile/+page.svelte` first to confirm the exact DiceBear pattern (10.x, `pixel-art` style, email as seed, no rounding) before reusing it here — same URL shape, no new pattern invented.
+- Kept the toggle client-only (`$state`, no URL/query-param sync) — nothing asked for a deep-linkable expanded state, and the data is already loaded on the page (no extra fetch on click).
+- Origin/main had moved forward by 4 PRs (personalization, Notion-style editor, publish-to-email + webhook analytics, and the subscriber-list session itself) since this worktree's last sync — pulled `origin/main` fast-forward and ran `bun install` (new `@tiptap/suggestion` dependency) before starting.
+
+### In Scope
+
+- Subscribers folded into Analytics, opened by clicking the subscriber count.
+- Subscriber list UI matches the Posts list pattern (flex rows, not a grid table), with per-row avatar.
+
+### Out of Scope
+
+- No change to the subscriber data model (still email-only, no name field) — "avatar before name" is avatar before email, since that's the only identifier that exists.
+- No deep-linking/URL state for the expanded list.
+
+### Breaking Changes
+
+- `dashboard/subscribers` route removed — any bookmarked link to it now 404s (redirects to `/login` if unauthenticated, same as any other unknown admin path would).
+
+### Notes for Future Sessions
+
+- This worktree had drifted 4 PRs behind `origin/main` (another agent's sessions merged directly to main while this session was in progress in a sibling worktree). Always `git fetch`/`git log origin/main` and fast-forward before starting new work in a long-lived worktree — a stale base risks silently reimplementing or conflicting with already-merged work. Ran `bun install` after the pull since `package.json`/`bun.lock` had changed.
+- Local e2e again collided with another Claude Code agent's dev server on port 4173 (a separate process in the sibling `openletter` primary-repo checkout) — used the `E2E_PORT` override added in Hotfix 22 (`E2E_PORT=4183 bun run test:e2e`) rather than touching that process. Also hit the routine `wrangler types` staleness after `bun install`/pulling — `bunx wrangler types` standalone fixed it, no crash this time.
+- No live browser-QA tool (gstack) was available this session — verification relied on the full check/unit/e2e/build suite (70/70 e2e passing, up from 55 as other sessions' specs landed) plus manual code reading. Worth a live click-through of the Analytics page's subscriber toggle next session if there's ever doubt.
+
+---
+
 ## Session 20 — Subscriber list (received/opened/clicked counts, unsubscribe tracking)
 
 **Date & Time (IST):** 2026-08-02 06:15 IST

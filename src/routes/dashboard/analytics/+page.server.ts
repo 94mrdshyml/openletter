@@ -10,10 +10,6 @@ const WEEK_ONE_DAY_MS = 24 * 60 * 60 * 1000;
 export const load: PageServerLoad = async ({ platform }) => {
 	const db = getDb(platform!.env.DB);
 
-	const [{ count: subscriberCount }] = await db
-		.select({ count: sql<number>`count(*)` })
-		.from(subscriber);
-
 	const weekAgo = new Date(Date.now() - 7 * WEEK_ONE_DAY_MS);
 	const [{ count: newThisWeek }] = await db
 		.select({ count: sql<number>`count(*)` })
@@ -75,8 +71,12 @@ export const load: PageServerLoad = async ({ platform }) => {
 	// JS from raw subscribedAt timestamps rather than a SQL date-bucketing
 	// query. Self-hosted single-publication scale (dozens to low thousands
 	// of subscribers), so this stays simple instead of leaning on
-	// SQLite-specific date functions.
-	const allSubscribers = await db.query.subscriber.findMany({ columns: { subscribedAt: true } });
+	// SQLite-specific date functions. Also doubles as the subscriber list
+	// (see below) — fetched once, full rows, rather than a separate
+	// columns-only query plus a second full query for the list.
+	const allSubscribers = await db.query.subscriber.findMany({
+		orderBy: desc(subscriber.subscribedAt)
+	});
 	const windowStart = new Date(Date.now() - (GROWTH_WEEKS - 1) * WEEK_MS);
 	let cumulative = allSubscribers.filter((s) => s.subscribedAt < windowStart).length;
 	const subscriberGrowth: number[] = [];
@@ -94,14 +94,52 @@ export const load: PageServerLoad = async ({ platform }) => {
 		growthWeekStarts[i].toLocaleDateString('en-US', { month: 'short' })
 	);
 
+	// Per-subscriber received/opened/clicked, same shape the standalone
+	// subscribers page used to compute — "received" is derived (how many
+	// sent posts fall within the subscriber's subscribed window) rather than
+	// tracked per-delivery, since there's no per-recipient send record, only
+	// the aggregate sentCount snapshot on each post.
+	const sentDates = publishedPosts.filter((p) => p.sentCount != null).map((p) => p.publishedAt!);
+	const emailEventCounts = await db
+		.select({
+			recipientEmail: postEmailEvent.recipientEmail,
+			type: postEmailEvent.type,
+			count: sql<number>`count(*)`
+		})
+		.from(postEmailEvent)
+		.groupBy(postEmailEvent.recipientEmail, postEmailEvent.type);
+
+	const eventsByEmail = new Map<string, { opened: number; clicked: number }>();
+	for (const row of emailEventCounts) {
+		const entry = eventsByEmail.get(row.recipientEmail) ?? { opened: 0, clicked: 0 };
+		entry[row.type] = row.count;
+		eventsByEmail.set(row.recipientEmail, entry);
+	}
+
+	const subscribers = allSubscribers.map((s) => {
+		const windowEnd = s.unsubscribedAt ?? new Date();
+		const received = sentDates.filter((d) => d >= s.subscribedAt && d <= windowEnd).length;
+		const events = eventsByEmail.get(s.email) ?? { opened: 0, clicked: 0 };
+		return {
+			id: s.id,
+			email: s.email,
+			subscribedAt: s.subscribedAt,
+			unsubscribedAt: s.unsubscribedAt,
+			received,
+			opened: events.opened,
+			clicked: events.clicked
+		};
+	});
+
 	return {
-		subscriberCount,
+		subscriberCount: allSubscribers.length,
 		newThisWeek,
 		postsPublished: publishedPosts.length,
 		avgOpenRate,
 		avgClickRate,
 		postPerformance,
 		subscriberGrowth,
-		monthLabels
+		monthLabels,
+		subscribers
 	};
 };

@@ -8,6 +8,19 @@ test('stays on /dashboard/analytics when navigated to', async ({ page }) => {
 	expect(page.url()).toContain('/dashboard/analytics');
 });
 
+test('redirects unauthenticated visitors to /login', async ({ page }) => {
+	await page.goto('/dashboard/analytics');
+	await expect(page).toHaveURL(/\/login/);
+});
+
+test('expands the subscriber list when the Total subscribers stat is clicked', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/analytics');
+	await expect(page.getByRole('heading', { name: 'Subscribers' })).toHaveCount(0);
+	await page.getByRole('button', { name: /Total subscribers/ }).click();
+	await expect(page.getByRole('heading', { name: 'Subscribers' })).toBeVisible();
+});
+
 test('shows the stats row with real subscriber/post counts', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard/analytics');
