@@ -7,6 +7,12 @@
 
 	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 	const maxGrowth = $derived(Math.max(1, ...data.subscriberGrowth));
+
+	let showSubscribers = $state(false);
+
+	function avatarUrl(email: string): string {
+		return `https://api.dicebear.com/10.x/pixel-art/svg?seed=${encodeURIComponent(email)}`;
+	}
 </script>
 
 <svelte:head>
@@ -17,11 +23,17 @@
 	<div
 		style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:2px solid var(--color-divider);margin:0 0 40px"
 	>
-		<div style="padding:24px;border-right:1px solid var(--color-divider)">
+		<button
+			type="button"
+			class="subscriber-stat"
+			style="padding:24px;border-right:1px solid var(--color-divider);text-align:left;background:none;border-top:0;border-left:0;border-bottom:0;cursor:pointer;font:inherit;color:inherit;width:100%"
+			onclick={() => (showSubscribers = !showSubscribers)}
+			aria-expanded={showSubscribers}
+		>
 			<div
 				style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 8px"
 			>
-				Total subscribers
+				Total subscribers {showSubscribers ? '▴' : '▾'}
 			</div>
 			<div
 				style="font-family:var(--font-heading);font-weight:800;font-size:36px;line-height:1;letter-spacing:-0.03em"
@@ -31,7 +43,7 @@
 			<div style="font-size:12px;color:var(--color-accent);margin-top:6px">
 				+{data.newThisWeek} this week
 			</div>
-		</div>
+		</button>
 		<div style="padding:24px;border-right:1px solid var(--color-divider)">
 			<div
 				style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 8px"
@@ -76,6 +88,50 @@
 			</div>
 		</div>
 	</div>
+
+	{#if showSubscribers}
+		<div style="margin:0 0 40px">
+			<h6
+				style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 12px"
+			>
+				Subscribers
+			</h6>
+			{#if data.subscribers.length === 0}
+				<p style="font-size:14px;color:var(--color-neutral-500)">No subscribers yet.</p>
+			{:else}
+				<div style="border-top:2px solid var(--color-divider)">
+					{#each data.subscribers as row, i (row.id)}
+						<div
+							style="display:flex;align-items:center;gap:14px;padding:14px 0;{i <
+							data.subscribers.length - 1
+								? 'border-bottom:1px solid var(--color-divider)'
+								: ''}"
+						>
+							<img
+								src={avatarUrl(row.email)}
+								alt=""
+								style="width:32px;height:32px;object-fit:cover;background:var(--color-surface);flex-shrink:0"
+							/>
+							<span
+								style="font-size:14px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+							>
+								{row.email}
+							</span>
+							<span style="font-size:12px;color:var(--color-neutral-500);white-space:nowrap">
+								Joined {formatPostDateShort(row.subscribedAt.toISOString().slice(0, 10))}
+							</span>
+							<span style="font-size:12px;color:var(--color-neutral-500);white-space:nowrap">
+								{row.received} sent · {row.opened} opened · {row.clicked} clicked
+							</span>
+							{#if row.unsubscribedAt}
+								<span class="tag tag-neutral" style="font-size:10px">Unsubscribed</span>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	<div style="margin:0 0 40px">
 		<h6
@@ -141,3 +197,9 @@
 		</table>
 	{/if}
 </div>
+
+<style>
+	.subscriber-stat:hover {
+		background: color-mix(in srgb, var(--color-text) 4%, transparent);
+	}
+</style>
