@@ -61,7 +61,8 @@ export async function sendPostBroadcast(
 	topicId: string | null,
 	from: string,
 	subject: string,
-	html: string
+	html: string,
+	name: string
 ): Promise<string | null> {
 	try {
 		const broadcast = await resendFetch(apiKey, '/broadcasts', 'POST', {
@@ -70,11 +71,31 @@ export async function sendPostBroadcast(
 			from,
 			subject,
 			html,
+			name,
 			send: true
 		});
 		return broadcast.id;
 	} catch {
 		console.error('Failed to send post broadcast');
 		return null;
+	}
+}
+
+// Opts a contact out of the publication's single Topic — the actual effect
+// of a reader unsubscribing via src/routes/unsubscribe. Distinct from
+// syncSubscriberContact's opt_in on subscribe; same fail-open pattern.
+export async function unsubscribeContactFromTopic(
+	apiKey: string,
+	email: string,
+	topicId: string
+): Promise<boolean> {
+	try {
+		await resendFetch(apiKey, `/contacts/${encodeURIComponent(email)}/topics`, 'PATCH', [
+			{ id: topicId, subscription: 'opt_out' }
+		]);
+		return true;
+	} catch {
+		console.error('Failed to unsubscribe Resend contact from topic');
+		return false;
 	}
 }

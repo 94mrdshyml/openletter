@@ -99,6 +99,125 @@ function renderEmailHtml(
 </html>`;
 }
 
+// The actual newsletter — full post content, not a teaser-and-link. Every
+// recipient is already a subscriber (this only ever goes out to the
+// publication's Segment), so there's no gating logic here the way the
+// public post page has for anonymous visitors: everyone on the send list
+// gets the full body regardless of the post's `wall` setting.
+function renderPostEmailHtml(
+	pubName: string,
+	logoUrl: string | null,
+	post: { title: string; subtitle: string | null; body: string; coverImageUrl: string | null },
+	postUrl: string,
+	unsubscribeUrl: string
+) {
+	const brandMark = logoUrl
+		? `<table role="presentation" cellpadding="0" cellspacing="0">
+				<tr>
+					<td style="padding-right:10px">
+						<img
+							src="${logoUrl}"
+							alt=""
+							width="28"
+							height="28"
+							style="display:block;width:28px;height:28px;object-fit:cover"
+						/>
+					</td>
+					<td style="font-size:13px;letter-spacing:0.1em;text-transform:uppercase;color:#ec3013;font-weight:800">
+						${pubName}
+					</td>
+				</tr>
+			</table>`
+		: `<span style="font-size:13px;letter-spacing:0.1em;text-transform:uppercase;color:#ec3013;font-weight:800"
+				>${pubName}</span
+			>`;
+
+	const coverImage = post.coverImageUrl
+		? `<tr>
+				<td style="padding:0 0 32px">
+					<img
+						src="${post.coverImageUrl}"
+						alt=""
+						width="600"
+						style="display:block;width:100%;height:auto"
+					/>
+				</td>
+			</tr>`
+		: '';
+
+	const subtitle = post.subtitle
+		? `<p style="margin:0 0 28px;font-size:17px;line-height:1.6;color:#605d5d">${post.subtitle}</p>`
+		: '';
+
+	return `<!doctype html>
+<html>
+	<body style="margin:0;padding:0;background:#f3f2f2;font-family:Archivo,Helvetica,Arial,sans-serif;color:#201e1d">
+		<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f2f2">
+			<tr>
+				<td align="center" style="padding:56px 24px">
+					<table
+						role="presentation"
+						width="600"
+						cellpadding="0"
+						cellspacing="0"
+						style="max-width:600px;width:100%;background:#ffffff"
+					>
+						<tr>
+							<td style="padding:36px 40px 24px;border-bottom:3px solid #ec3013">
+								${brandMark}
+							</td>
+						</tr>
+						<tr>
+							<td style="padding:40px 40px 0">
+								<h1 style="margin:0 0 12px;font-size:30px;line-height:1.2;letter-spacing:-0.02em;font-weight:800">
+									${post.title}
+								</h1>
+							</td>
+						</tr>
+						<tr>
+							<td style="padding:0 40px">
+								${subtitle}
+							</td>
+						</tr>
+						${coverImage}
+						<tr>
+							<td
+								style="padding:0 40px 40px;font-size:17px;line-height:1.7;color:#201e1d"
+							>
+								${post.body}
+							</td>
+						</tr>
+						<tr>
+							<td style="padding:0 40px 44px">
+								<a
+									href="${postUrl}"
+									style="display:inline-block;background:#ec3013;color:#f3f2f2;font-weight:800;font-size:15px;text-decoration:none;padding:14px 32px"
+									>Read online</a
+								>
+							</td>
+						</tr>
+						<tr>
+							<td style="padding:24px 40px 0;border-top:1px solid #d7d3d3">
+								<p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#605d5d">
+									— The ${pubName} team
+								</p>
+								<p style="margin:0;font-size:12px;line-height:1.5;color:#9b9797">
+									<a href="${unsubscribeUrl}" style="color:#9b9797">Unsubscribe</a> from ${pubName}'s
+									newsletter.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<td style="height:40px"></td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>`;
+}
+
 async function sendEmail(
 	env: Env,
 	to: string,
@@ -176,7 +295,13 @@ export async function sendMagicLinkEmail(env: Env, to: string, url: string) {
 export async function sendPostPublishedBroadcast(
 	env: Env,
 	origin: string,
-	post: { title: string; subtitle: string | null; excerpt: string | null; slug: string }
+	post: {
+		title: string;
+		subtitle: string | null;
+		body: string;
+		coverImageUrl: string | null;
+		slug: string;
+	}
 ): Promise<{ broadcastId: string; sentCount: number } | null> {
 	const db = getDb(env.DB);
 	const pub = await db.query.publication.findFirst();
@@ -186,14 +311,12 @@ export async function sendPostPublishedBroadcast(
 	if (sentCount === 0) return null;
 
 	const postUrl = `${origin}/p/${post.slug}`;
-	const html = renderEmailHtml(
-		pub.name,
-		pub.logoUrl,
-		post.title,
-		post.excerpt || post.subtitle || 'A new post is up.',
-		'Read now',
-		postUrl
-	);
+	// {{{contact.email}}} is a Resend broadcast merge tag — interpolated to
+	// the actual recipient's email per-send, not literal text. Must stay
+	// unescaped/unencoded exactly as written for Resend to recognize it; see
+	// src/routes/unsubscribe for what this link does.
+	const unsubscribeUrl = `${origin}/unsubscribe?email={{{contact.email}}}`;
+	const html = renderPostEmailHtml(pub.name, pub.logoUrl, post, postUrl, unsubscribeUrl);
 
 	const broadcastId = await sendPostBroadcast(
 		pub.resendApiKey,
@@ -201,7 +324,8 @@ export async function sendPostPublishedBroadcast(
 		pub.resendTopicId,
 		`${pub.resendFromName || pub.name} <${pub.resendFromEmail}>`,
 		post.title,
-		html
+		html,
+		post.title
 	);
 	if (!broadcastId) return null;
 

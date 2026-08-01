@@ -84,7 +84,8 @@ export const actions: Actions = {
 			const sent = await sendPostPublishedBroadcast(env, url.origin, {
 				title: parsed.title,
 				subtitle: parsed.subtitle,
-				excerpt: parsed.excerpt,
+				body: parsed.body,
+				coverImageUrl: parsed.coverImageUrl,
 				slug: parsed.slug
 			});
 			if (sent) {

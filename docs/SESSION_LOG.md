@@ -2,6 +2,60 @@
 
 ---
 
+## Session 21 — Newsletter bug fixes: full body, broadcast name, tracking, real unsubscribe
+
+**Date & Time (IST):** 2026-08-02 06:50 IST
+**Status:** Completed
+**Branch:** feature/session-21-newsletter-fixes
+
+### What We Built
+
+User tested a real send from Session 19's pipeline and reported four issues from the actual received email (screenshot attached): only title/excerpt sent (not the full post), the Resend broadcast showed as "Untitled", open rate wasn't updating, and there was no unsubscribe link — the last one flagged as a legal blocker ("without it sending newsletter is not legal"), correctly.
+
+Researched before touching code, since guessing wrong here has real compliance/deliverability consequences:
+
+- **Broadcast name**: `POST /broadcasts`'s `name` field ("friendly name, internal reference only") was simply never sent — an oversight from Session 19, not a Resend limitation. One-line fix.
+- **Open rate not updating**: not a code bug at all. Resend's open/click tracking is **off by default per domain**, and needs a verified tracking subdomain turned on in Resend's own dashboard (Domains → domain → Configuration). Nothing in this app can flip that on for the writer — documented in `dashboard/settings` and `CLAUDE.md` instead of "fixed."
+- **Unsubscribe**: researched Resend's actual merge-tag and contact-API surface before deciding how to build it. Broadcasts support exactly four merge tags (`contact.first_name`, `contact.last_name`, `contact.email`, `RESEND_UNSUBSCRIBE_URL`) — no custom/arbitrary per-recipient data. User explicitly asked, mid-report, whether a fully custom branded unsubscribe page was feasible via Resend's contacts API rather than Resend's own hosted preference page (which is what PRD feature #6 originally specified) — confirmed via AskUserQuestion to build it now rather than ship the faster built-in-merge-tag version. `PATCH /contacts/{email}/topics` (opt_out) is real and exactly what's needed.
+
+### How We Built It
+
+- **`src/lib/server/mail.ts`**: new `renderPostEmailHtml()` — a real newsletter template (brand header, title, subtitle, cover image, **full `post.body`**, "Read online" CTA, unsubscribe footer), replacing the reuse of the short transactional `renderEmailHtml()` (magic link/invite template) that Session 19 had wired up for posts by mistake — that one only ever took a one-line `body` string (excerpt), never the actual content. `sendPostPublishedBroadcast()`'s signature widened to take `body`/`coverImageUrl`; both publish actions updated to pass them through.
+- **`src/lib/server/resend.ts`**: `sendPostBroadcast()` gained a `name` parameter, passed as `post.title` from `mail.ts` (subject and name are both the post title, but they're semantically distinct fields Resend treats differently — subject is what the recipient sees, name is Resend's own internal dashboard label). New `unsubscribeContactFromTopic()` — `PATCH /contacts/{email}/topics` with `opt_out`.
+- **`src/routes/unsubscribe`** (new, public, no auth): the link embedded in every newsletter footer is `/unsubscribe?email={{{contact.email}}}` — the merge tag is interpolated by Resend to the real recipient's address per-send, so each reader's email lands in the link they actually receive, pre-filled. The page shows a confirm step (GET, no mutation — protects against email-client link-scanners/prefetchers silently triggering a real unsubscribe), and a POST from the confirm button calls `unsubscribeContactFromTopic()` directly, then sets `subscriber.unsubscribedAt` in our own D1 **only if the Resend call actually succeeded**. Deliberately not the "always claim success" pattern some apps use for unsubscribe pages to avoid email enumeration: since the real send list lives in Resend's Segment/Topic membership, a failed API call means the reader keeps getting emails no matter what our UI claims, so honesty about the real outcome matters more here than enumeration hygiene. On failure, the page surfaces the publication's `resendFromEmail` as a manual fallback.
+- **`dashboard/settings`**: added an inline note under "Email delivery" explaining the tracking-subdomain requirement, since there's no code fix to offer.
+
+### No per-recipient secure token was possible — and that's a real, disclosed limitation
+
+Resend's Broadcast merge tags don't include arbitrary custom contact `properties`, only `contact.email` (and name fields, and their own unsubscribe URL). That means the unsubscribe link can't carry a per-recipient signed token the way some ESPs' native unsubscribe links do — anyone who already knows a specific reader's email could visit `/unsubscribe?email=<that address>` and unsubscribe them without that reader's action. Accepted as the practical ceiling given Resend's actual API surface (this is also how most plain "email-in-the-link" unsubscribe implementations work industry-wide), mitigated by the GET-shows-confirm/POST-executes split so at least a scanner or accidental click can't trigger it — but worth flagging plainly rather than implying stronger protection than what's actually there.
+
+### Testing
+
+- `src/routes/unsubscribe/page.svelte.e2e.ts` (new): missing-email state, confirm-step render with the email shown, and the POST path — which genuinely exercises the real Resend API call and hits its real failure branch in e2e (placeholder API key), asserting the honest "Something went wrong" state rather than a faked success. Same fail-open-but-tested-for-real pattern as prior sessions' broadcast-send tests.
+- Full-body template, broadcast name, and the tracking-subdomain note aren't independently e2e-assertable (no way to inspect the actual HTML/fields Resend received without mocking their API, which this project doesn't do) — covered by the existing "publishing still succeeds even when the configured Resend send fails" test continuing to pass with the widened function signature, plus a manual read-through of the rendered template.
+- Full suite: 73 e2e passed, 19 unit passed.
+
+### In Scope
+
+- Full post-content newsletter template, broadcast `name` field, `/unsubscribe` custom branded page + Resend contact-topics API integration, tracking-subdomain documentation in settings, `PRD.md`/`CLAUDE.md` updated.
+
+### Out of Scope
+
+- Actually enabling tracking on the writer's Resend domain — a manual DNS-verification step in Resend's dashboard, not something this app can automate safely (would mean mutating the writer's domain config, requiring their own subdomain choice and DNS changes).
+- A per-recipient secure unsubscribe token — not achievable with Resend's current documented merge-tag surface (see above). Would need Resend to add custom-property merge tags, or a different delivery mechanism entirely (e.g. sending individual `/emails` per subscriber instead of one Broadcast, which would let us build the link ourselves — a much bigger architectural change, not proposed here).
+- List-Unsubscribe email headers (RFC 8058, Gmail/Yahoo bulk-sender one-click) — Resend's docs don't confirm whether/how these are set for Broadcasts, and this project doesn't set custom headers on the broadcast API call. Not blocking (the visible footer link satisfies the baseline CAN-SPAM/GDPR requirement), but worth a future look if a publication's list grows into bulk-sender territory.
+
+### Breaking Changes
+
+NONE. `sendPostPublishedBroadcast`'s widened signature is used only internally by the two publish actions, both updated together.
+
+### Notes for Future Sessions
+
+- If a future session wants real per-recipient personalization or a secure unsubscribe token, the two realistic paths are: (a) ask Resend support whether custom `properties` merge tags are actually supported but undocumented, or (b) switch post-sends from one Broadcast to N individual `/emails` calls (one per subscriber) — meaningfully more API calls and complexity, but full control over each recipient's link/content.
+- Embeds (YouTube iframe, Twitter/X blockquote+widgets.js) inside `post.body` are now included in the newsletter as-is. Most email clients strip `<iframe>` and `<script>`, so these will likely render as blank space or a bare link in an inbox even though they work fine on the public post page. Not reported as an issue this session, but a predictable one — flagging for whoever hits it next.
+
+---
+
 ## Session 20 — Subscriber list (received/opened/clicked counts, unsubscribe tracking)
 
 **Date & Time (IST):** 2026-08-02 06:15 IST

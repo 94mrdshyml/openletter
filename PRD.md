@@ -43,14 +43,14 @@ Two implementation notes carried over from stack discussion:
 1. Write/edit a post in the editor (draft state).
 2. Hit Publish.
 3. Post becomes a public web page + appears on the publication homepage + RSS feed.
-4. Post is sent as an email to the relevant Resend Segment/Topic — immediately, for a real ("Publish now") publish. A "Schedule for later" post does **not** currently send an email: there's no cron trigger to fire it when the scheduled time arrives (see §10).
+4. Post is sent as an email to the relevant Resend Segment/Topic — the full post content (not a teaser-and-link), immediately, for a real ("Publish now") publish. A "Schedule for later" post does **not** currently send an email: there's no cron trigger to fire it when the scheduled time arrives (see §10).
 
 **Reader: subscribe loop**
 
 1. Enter email on the publication page.
 2. Better Auth sends a magic link via Resend.
 3. Clicking the link creates the session and adds the contact to the publication's Resend Segment (and Topic, if the publication has more than one newsletter category).
-4. Reader receives future posts by email and can manage preferences via the Resend-hosted Topic preference page.
+4. Reader receives future posts by email and can unsubscribe via OpenLetter's own branded `/unsubscribe` page (not Resend's hosted Topic preference page — see feature #6).
 
 ## 6. V1 Feature Requirements
 
@@ -61,7 +61,7 @@ Two implementation notes carried over from stack discussion:
 | 3   | Public site             | Individual post pages, publication homepage (post list), RSS feed.                                                                                                                                                                                                               |
 | 4   | Subscribe flow          | Email capture → Better Auth magic link → Resend Segment/Topic membership.                                                                                                                                                                                                        |
 | 5   | Publish → email         | Publishing a post triggers a send to the associated Segment/Topic via Resend.                                                                                                                                                                                                    |
-| 6   | Unsubscribe/preferences | Reader-facing link into Resend's Topic preference page.                                                                                                                                                                                                                          |
+| 6   | Unsubscribe/preferences | Own branded page (`/unsubscribe`), not Resend-hosted — every send footer links here with `{{{contact.email}}}` pre-filled; confirming calls Resend's contact-topics API (`PATCH /contacts/{email}/topics`, opt_out) directly.                                                    |
 | 7   | Writer dashboard        | Subscriber count, post list, open/click stats sourced directly from Resend's own analytics (no custom tracking build).<sup>†</sup> Full subscriber list (`dashboard/subscribers`): email, subscribed date, newsletters received, opens, clicks, unsubscribed date if applicable. |
 | 8   | CLI deploy              | One command: provisions Worker, D1 (+ migrations), R2 bucket; prompts for Resend API key and Better Auth secret; ends in a working publication.                                                                                                                                  |
 | 9   | Personalization         | Brand accent color and heading/body fonts (curated Google Fonts list), editable in `dashboard/settings`. See §7 for what this deliberately excludes.                                                                                                                             |

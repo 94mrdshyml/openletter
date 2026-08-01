@@ -174,6 +174,11 @@
 				<p style="font-size:13px;color:var(--color-neutral-500);margin:0 0 16px">
 					Powers sign-in links, admin invites, and the newsletter.
 				</p>
+				<p style="font-size:12px;color:var(--color-neutral-500);margin:0 0 16px;line-height:1.5">
+					Open/click rates in Analytics need tracking turned on for your sending domain — off by
+					default on Resend. In Resend: your domain → Configuration → "Enable tracking metrics"
+					(needs a verified tracking subdomain).
+				</p>
 			</div>
 			<div class="field">
 				<label for="resendApiKey">Resend API key</label>
