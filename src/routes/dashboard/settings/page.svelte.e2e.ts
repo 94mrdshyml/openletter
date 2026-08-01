@@ -31,6 +31,48 @@ test('saves publication changes for real', async ({ page }) => {
 	await expect(page.getByLabel('Tagline')).toHaveValue('Updated tagline for real');
 });
 
+test('shows the personalization fields with a live preview', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	await expect(page.getByLabel('Heading font')).toHaveValue('Archivo');
+	await expect(page.getByLabel('Body font')).toHaveValue('Archivo');
+	await expect(page.getByLabel('Brand color')).toHaveValue('#ec3013');
+	await expect(page.getByText('Preview')).toBeVisible();
+});
+
+test('warns when a picked accent color has poor button-text contrast', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	// The shipped default brand color itself only reaches ~3.76:1 with the
+	// design system's light button text — below full AA (see lib/color.ts's
+	// READABILITY_FLOOR comment) — so it's the real case the warning exists for.
+	await page.getByLabel('Brand color').fill('#ec3013');
+	// \s+ rather than a literal space: the source template's line wrap lands
+	// a real newline between these two words in the SSR'd text node (Svelte
+	// doesn't collapse static-text whitespace at compile time the way a
+	// browser collapses it visually), so a literal-space regex is brittle
+	// against reformatting.
+	await expect(page.getByText(/below the recommended\s+4\.5:1/)).toBeVisible();
+
+	// A very dark accent should clear it cleanly.
+	await page.getByLabel('Brand color').fill('#201e1d');
+	await expect(page.getByText(/meets accessibility\s+guidelines/)).toBeVisible();
+});
+
+test('saves personalization changes for real', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	await page.getByLabel('Heading font').selectOption('Poppins');
+	await page.getByLabel('Body font').selectOption('Libre Franklin');
+	await page.getByLabel('Brand color').fill('#2b6cb0');
+	await page.getByRole('button', { name: 'Save changes' }).click();
+	await expect(page.getByText('Saved.')).toBeVisible();
+	await page.reload();
+	await expect(page.getByLabel('Heading font')).toHaveValue('Poppins');
+	await expect(page.getByLabel('Body font')).toHaveValue('Libre Franklin');
+	await expect(page.getByLabel('Brand color')).toHaveValue('#2b6cb0');
+});
+
 test('sends an admin invite', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard/settings');
@@ -90,6 +132,31 @@ test('a reader cannot rewrite publication settings', async ({ page }) => {
 		headers: { origin: BASE }
 	});
 	expect(await res.json()).toMatchObject(GATED);
+});
+
+test('an invalid accent color or font is silently ignored, not stored', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	const previousFont = await page.getByLabel('Heading font').inputValue();
+	const previousColor = await page.getByLabel('Brand color').inputValue();
+
+	// Bypasses the <select>/<input type="color"> UI, which can never produce
+	// these values on their own — this is the actual server-side guard
+	// (isValidHexColor / isValidFont), since these fields feed an inline
+	// style and a Google Fonts URL in the root layout.
+	const res = await page.request.post('/dashboard/settings?/save', {
+		form: {
+			name: 'The Meridian',
+			accentColor: '"><script>alert(1)</script>',
+			headingFont: 'NotARealFont; DROP TABLE publication;'
+		},
+		headers: { origin: BASE }
+	});
+	expect(res.ok()).toBe(true);
+
+	await page.reload();
+	await expect(page.getByLabel('Heading font')).toHaveValue(previousFont);
+	await expect(page.getByLabel('Brand color')).toHaveValue(previousColor);
 });
 
 test('a reader cannot load the settings page', async ({ page }) => {

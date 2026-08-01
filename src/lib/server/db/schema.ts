@@ -12,6 +12,15 @@ export const publication = sqliteTable('publication', {
 	description: text('description'),
 	category: text('category'),
 	logoUrl: text('logo_url'),
+	// Personalization — accent color + heading/body fonts, editable in
+	// dashboard/settings. accentColor is a validated #rrggbb hex (see
+	// lib/color.ts); heading/bodyFont are validated against the curated
+	// list in lib/fonts.ts. Both validated server-side before this column
+	// is ever written, since their values feed directly into an inline
+	// style block in the root layout (see +layout.svelte).
+	accentColor: text('accent_color').notNull().default('#ec3013'),
+	headingFont: text('heading_font').notNull().default('Archivo'),
+	bodyFont: text('body_font').notNull().default('Archivo'),
 	// Writer-supplied at /setup, editable later in dashboard/settings — never
 	// an env var/Cloudflare secret and never returned to the client (see
 	// +layout.server.ts and dashboard/settings/+page.server.ts, both of

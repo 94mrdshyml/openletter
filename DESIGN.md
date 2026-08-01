@@ -8,21 +8,32 @@ Editorial, newspaper-like. Warm off-white background, sharp red-orange accent, z
 
 ## Palette
 
-| Token                      | Value                                 | Use                                                 |
-| -------------------------- | ------------------------------------- | --------------------------------------------------- |
-| `--color-bg`               | `#f3f2f2`                             | Page background                                     |
-| `--color-surface`          | `#eae9e9`                             | Cards, inputs, dashed upload boxes                  |
-| `--color-text`             | `#201e1d`                             | Body text                                           |
-| `--color-accent`           | `#ec3013`                             | Links, primary buttons, the signature header rule   |
-| `--color-divider`          | `color-mix(#201e1d 40%, transparent)` | Rules and borders                                   |
-| `--color-neutral-100..900` | tonal ramp                            | Muted text, backgrounds, borders at varying weights |
-| `--color-accent-100..900`  | tonal ramp                            | Accent variants (hover/active states, tags)         |
+| Token                      | Value                                                        | Use                                                   |
+| -------------------------- | ------------------------------------------------------------ | ----------------------------------------------------- |
+| `--color-bg`               | `#f3f2f2`                                                    | Page background                                       |
+| `--color-surface`          | `#eae9e9`                                                    | Cards, inputs, dashed upload boxes                    |
+| `--color-text`             | `#201e1d`                                                    | Body text                                             |
+| `--color-accent`           | `#ec3013` default, **per-publication** — see Personalization | Links, primary buttons, the signature header rule     |
+| `--color-divider`          | `color-mix(#201e1d 40%, transparent)`                        | Rules and borders                                     |
+| `--color-neutral-100..900` | tonal ramp                                                   | Muted text, backgrounds, borders at varying weights   |
+| `--color-accent-100..900`  | `color-mix()` ramp derived from `--color-accent`             | Accent variants (hover/active states, tags)           |
+| `--color-on-accent`        | computed per-publication                                     | Text on `--color-accent` backgrounds (`.btn-primary`) |
 
 ## Type
 
-- `--font-heading` / `--font-body`: both **Archivo** (weights 400/600/800 loaded via Google Fonts in `src/app.html`), heading weight `800`
+- `--font-heading` / `--font-body`: default **Archivo**, but **per-publication** — see Personalization. Weights 400/600/800 loaded via a dynamically-built Google Fonts URL (`src/lib/fonts.ts`), heading weight `800`
 - Scale: `h1` 42px → `h6` 13px (uppercase, letter-spaced) — see `src/app.css` for the full ramp
 - Headings: negative letter-spacing (`-0.015em` to `-0.04em` depending on size) for the tight editorial look
+
+## Personalization
+
+A writer can set two things in `dashboard/settings`, applied site-wide (public site + dashboard) via inline CSS custom properties set in the root layout (`src/routes/+layout.svelte`):
+
+- **Heading font & body font** — picked from a curated list of 12 Google Fonts (`src/lib/fonts.ts`), not free text. Every entry ships the 400/600/800 weights the system relies on; the fixed list means a submitted value can only ever be one of these exact strings, safe to interpolate into a Google Fonts URL and an inline `style` attribute without separate sanitization.
+- **Brand accent color** — any hex color, via a native `<input type="color">`. `--color-accent-100..900` are `color-mix()` expressions derived from `--color-accent` in `src/app.css`, so any accent automatically gets a full tonal ramp. `--color-accent-2` (the system's secondary color) is **not** personalizable.
+- **Contrast safety** — `.btn-primary` text defaults to light (`--color-bg`), matching the system's original look. `src/lib/color.ts` only switches to dark text (`--color-text`) when light text would drop below a readability floor (3:1, WCAG's large/bold-text minimum) against the chosen accent — so the shipped default accent (`#ec3013`) keeps its exact original light-text button, while a genuinely pale accent gets dark text automatically. Settings shows the computed contrast ratio and an informational note when it's below full WCAG AA (4.5:1), even though the picked color is always the more-readable option available.
+
+**Deliberately not personalizable:** layout, spacing (`--space-*`), border-radius (`--radius-*`, all `0px`), shadows, and the secondary accent (`--color-accent-2`). A scoped exception to the "no theme marketplace" decision in `PRD.md` §7, not a reversal of it.
 
 ## Spacing & radius
 

@@ -1,5 +1,6 @@
 import type { LayoutServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
+import { pickOnAccentColor } from '$lib/color';
 
 export const load: LayoutServerLoad = async ({ platform, locals }) => {
 	const db = getDb(platform!.env.DB);
@@ -15,9 +16,15 @@ export const load: LayoutServerLoad = async ({ platform, locals }) => {
 			description: true,
 			category: true,
 			logoUrl: true,
+			accentColor: true,
+			headingFont: true,
+			bodyFont: true,
 			createdAt: true
 		}
 	});
+	// Computed once per request from the publication's own accentColor —
+	// see lib/color.ts for why this can't just always be light text.
+	const onAccentColor = publication ? pickOnAccentColor(publication.accentColor).color : undefined;
 	// Also flows to every page — just the display-safe subset of the signed-in
 	// user, for nav gating (My profile / Dashboard / Log in).
 	const user = locals.user
@@ -29,5 +36,5 @@ export const load: LayoutServerLoad = async ({ platform, locals }) => {
 				role: locals.user.role
 			}
 		: null;
-	return { publication, user };
+	return { publication, user, onAccentColor };
 };

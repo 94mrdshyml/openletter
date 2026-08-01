@@ -54,21 +54,22 @@ Two implementation notes carried over from stack discussion:
 
 ## 6. V1 Feature Requirements
 
-| #   | Feature                 | Requirement                                                                                                                                     |
-| --- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Publication setup       | Name, slug/subdomain, single logo field. No theme customization in v1.                                                                          |
-| 2   | Post editor             | Tiptap-based, draft and publish states.                                                                                                         |
-| 3   | Public site             | Individual post pages, publication homepage (post list), RSS feed.                                                                              |
-| 4   | Subscribe flow          | Email capture → Better Auth magic link → Resend Segment/Topic membership.                                                                       |
-| 5   | Publish → email         | Publishing a post triggers a send to the associated Segment/Topic via Resend.                                                                   |
-| 6   | Unsubscribe/preferences | Reader-facing link into Resend's Topic preference page.                                                                                         |
-| 7   | Writer dashboard        | Subscriber count, post list, open/click stats sourced directly from Resend's own analytics (no custom tracking build).                          |
-| 8   | CLI deploy              | One command: provisions Worker, D1 (+ migrations), R2 bucket; prompts for Resend API key and Better Auth secret; ends in a working publication. |
+| #   | Feature                 | Requirement                                                                                                                                          |
+| --- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Publication setup       | Name, slug/subdomain, single logo field.                                                                                                             |
+| 2   | Post editor             | Tiptap-based, draft and publish states.                                                                                                              |
+| 3   | Public site             | Individual post pages, publication homepage (post list), RSS feed.                                                                                   |
+| 4   | Subscribe flow          | Email capture → Better Auth magic link → Resend Segment/Topic membership.                                                                            |
+| 5   | Publish → email         | Publishing a post triggers a send to the associated Segment/Topic via Resend.                                                                        |
+| 6   | Unsubscribe/preferences | Reader-facing link into Resend's Topic preference page.                                                                                              |
+| 7   | Writer dashboard        | Subscriber count, post list, open/click stats sourced directly from Resend's own analytics (no custom tracking build).                               |
+| 8   | CLI deploy              | One command: provisions Worker, D1 (+ migrations), R2 bucket; prompts for Resend API key and Better Auth secret; ends in a working publication.      |
+| 9   | Personalization         | Brand accent color and heading/body fonts (curated Google Fonts list), editable in `dashboard/settings`. See §7 for what this deliberately excludes. |
 
 ## 7. Explicitly Out of Scope for V1
 
 - **Paid subscriptions / Stripe billing** — significant scope (webhooks, tiers, proration, dunning); Ghost's established home turf, not needed to validate the core loop.
-- **Custom themes / theme marketplace** — Ghost's moat; revisit post-v1.
+- **Custom themes / theme marketplace** — Ghost's moat; revisit post-v1. **Narrowed, not reversed, by feature #9 above:** brand accent color and heading/body font are now personalizable (a deliberate, scoped exception — see DESIGN.md), but layout, spacing, border-radius, and arbitrary CSS remain fixed. The wedge is still "one opinionated design system," not a theme editor — a publication can look like itself, not like anything a writer imagines.
 - **Comments** — moderation and spam handling is its own workstream.
 - **Multi-author / team publications** — needs a permissions model; single-writer-per-instance is an acceptable v1 constraint.
 - **Custom analytics** — Resend's built-in metrics are sufficient for now.

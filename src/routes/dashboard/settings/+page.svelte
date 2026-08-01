@@ -1,12 +1,24 @@
 <script lang="ts">
 	import type { ActionData, PageData } from './$types';
+	import { GOOGLE_FONTS, googleFontsHref } from '$lib/fonts';
+	import { pickOnAccentColor } from '$lib/color';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	const pub = $derived(data.publication);
+
+	let accentColor = $state(pub?.accentColor ?? '#ec3013');
+	let headingFont = $state(pub?.headingFont ?? 'Archivo');
+	let bodyFont = $state(pub?.bodyFont ?? 'Archivo');
+	const accentPreview = $derived(pickOnAccentColor(accentColor));
+	// The root layout only loads whatever font is already saved — load the
+	// currently-picked (possibly unsaved) fonts too, so the preview below
+	// renders in the real typeface rather than a system-font fallback.
+	const previewFontsHref = $derived(googleFontsHref([headingFont, bodyFont]));
 </script>
 
 <svelte:head>
 	<title>Settings · {pub?.name ?? 'Settings'}</title>
+	<link href={previewFontsHref} rel="stylesheet" />
 </svelte:head>
 
 <div class="container-wide" style="padding:40px">
@@ -79,6 +91,81 @@
 							Optional. Your publication name is displayed if no logo is set.
 						</p>
 					</div>
+				</div>
+			</div>
+
+			<div style="border-top:2px solid var(--color-divider);padding-top:24px">
+				<h3 style="font-size:18px;margin:0 0 4px">Personalization</h3>
+				<p style="font-size:13px;color:var(--color-neutral-500);margin:0 0 16px">
+					Applies across your public site and dashboard.
+				</p>
+			</div>
+			<div style="display:flex;gap:16px">
+				<div class="field" style="flex:1">
+					<label for="headingFont">Heading font</label>
+					<select class="input" id="headingFont" name="headingFont" bind:value={headingFont}>
+						{#each GOOGLE_FONTS as font (font)}
+							<option value={font}>{font}</option>
+						{/each}
+					</select>
+				</div>
+				<div class="field" style="flex:1">
+					<label for="bodyFont">Body font</label>
+					<select class="input" id="bodyFont" name="bodyFont" bind:value={bodyFont}>
+						{#each GOOGLE_FONTS as font (font)}
+							<option value={font}>{font}</option>
+						{/each}
+					</select>
+				</div>
+			</div>
+			<div class="field">
+				<label for="accentColor">Brand color</label>
+				<div style="display:flex;align-items:center;gap:12px">
+					<input
+						id="accentColor"
+						name="accentColor"
+						type="color"
+						bind:value={accentColor}
+						style="width:44px;height:36px;padding:2px;border:1px solid var(--color-divider);background:var(--color-surface);cursor:pointer"
+					/>
+					<span style="font-size:13px;color:var(--color-neutral-500)">{accentColor}</span>
+				</div>
+				{#if accentPreview.meetsAA}
+					<p style="font-size:12px;color:var(--color-neutral-500);margin:8px 0 0">
+						Button text contrast: {accentPreview.contrast.toFixed(1)}:1 — meets accessibility
+						guidelines.
+					</p>
+				{:else}
+					<p style="font-size:12px;color:var(--color-accent-700);margin:8px 0 0">
+						Button text contrast is {accentPreview.contrast.toFixed(1)}:1, below the recommended
+						4.5:1. Button text has switched to {accentPreview.color === '#201e1d'
+							? 'dark'
+							: 'light'} automatically for the best available contrast.
+					</p>
+				{/if}
+			</div>
+			<div class="field">
+				<span
+					style="display:block;font-size:12px;margin-bottom:5px;color:color-mix(in srgb, var(--color-text) 70%, transparent)"
+					>Preview</span
+				>
+				<div
+					style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--color-surface);border:1px solid var(--color-divider)"
+				>
+					<span
+						style="font-family:'{headingFont}', system-ui, sans-serif;font-weight:800;font-size:20px;letter-spacing:-0.02em"
+						>Aa</span
+					>
+					<button
+						type="button"
+						tabindex="-1"
+						style="font-family:'{headingFont}', system-ui, sans-serif;font-weight:800;font-size:14px;padding:10px 24px;border:none;cursor:default;background:{accentColor};color:{accentPreview.color}"
+					>
+						New post
+					</button>
+					<span style="font-family:'{bodyFont}', system-ui, sans-serif;font-size:14px"
+						>Body text sample</span
+					>
 				</div>
 			</div>
 
