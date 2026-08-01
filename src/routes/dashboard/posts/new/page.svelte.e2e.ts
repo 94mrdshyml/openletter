@@ -73,6 +73,28 @@ test('writes a post, saves it as a draft, and it appears in the drafts list', as
 	await expect(page.getByText('A Real Draft From E2E')).toBeVisible();
 });
 
+test('publishing still succeeds even when the configured Resend send fails', async ({ page }) => {
+	// e2e's Resend API key is a placeholder (see e2e-global-setup.ts), so once
+	// a Segment id is configured, the real broadcast-send call this makes to
+	// api.resend.com will genuinely fail auth — this is exactly the fail-open
+	// path sendPostPublishedBroadcast is built for: the post still publishes,
+	// it just doesn't get a resendBroadcastId (see mail.ts).
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	await page.getByLabel('Resend Segment ID').fill('seg_e2e_test_only');
+	await page.getByRole('button', { name: 'Save changes' }).click();
+	await expect(page.getByText('Saved.')).toBeVisible();
+
+	await page.goto('/dashboard/posts/new');
+	await expect(page.getByRole('textbox', { name: 'Post body' })).toBeVisible();
+	await page.getByRole('textbox', { name: 'Post title' }).fill('Publish Despite Broadcast Failure');
+	await page.getByRole('textbox', { name: 'Post body' }).click();
+	await page.keyboard.type('This should publish even though the broadcast send fails.');
+	await page.getByRole('button', { name: 'Publish', exact: true }).click();
+	await page.getByRole('button', { name: 'Publish now' }).click();
+	await expect(page).toHaveURL(/\/dashboard\/posts\/post_/);
+});
+
 test('opens the publish confirmation dialog', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard/posts/new');

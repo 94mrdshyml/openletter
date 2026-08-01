@@ -73,6 +73,38 @@ test('saves personalization changes for real', async ({ page }) => {
 	await expect(page.getByLabel('Brand color')).toHaveValue('#2b6cb0');
 });
 
+test('saves the webhook signing secret, never round-tripping its value', async ({ page }) => {
+	// Doesn't assert the pristine "Not set" starting placeholder — other
+	// specs (e.g. the webhook endpoint's own e2e tests) configure a secret
+	// against this same single-publication row, and test files can run in
+	// parallel, so "unset" isn't a safe assumption here. Only the save/
+	// blank-keeps-current behavior below is what this test actually owns.
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+
+	await page.getByLabel('Resend webhook signing secret').fill('whsec_testonlysecretvalue');
+	await page.getByRole('button', { name: 'Save changes' }).click();
+	await expect(page.getByText('Saved.')).toBeVisible();
+
+	await page.reload();
+	// The raw secret is never sent back to the client — only whether one is
+	// set, shown as a masked placeholder, same pattern as the API key field.
+	await expect(page.getByLabel('Resend webhook signing secret')).toHaveAttribute(
+		'placeholder',
+		'••••••••••••••••'
+	);
+	await expect(page.getByLabel('Resend webhook signing secret')).toHaveValue('');
+
+	// Saving again with the field left blank keeps the secret, doesn't clear it.
+	await page.getByRole('button', { name: 'Save changes' }).click();
+	await expect(page.getByText('Saved.')).toBeVisible();
+	await page.reload();
+	await expect(page.getByLabel('Resend webhook signing secret')).toHaveAttribute(
+		'placeholder',
+		'••••••••••••••••'
+	);
+});
+
 test('sends an admin invite', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard/settings');

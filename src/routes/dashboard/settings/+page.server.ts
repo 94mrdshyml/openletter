@@ -26,11 +26,18 @@ export const load: PageServerLoad = async ({ platform }) => {
 	const pub = await db.query.publication.findFirst();
 	if (!pub) return { publication: pub };
 
-	// resendApiKey is deliberately excluded — this data flows to the client
-	// for hydration, and the settings form never needs to display the raw
-	// key back (see +page.svelte's "leave blank to keep current" pattern).
-	const { resendApiKey, ...publicationSafe } = pub;
-	return { publication: { ...publicationSafe, hasResendApiKey: !!resendApiKey } };
+	// resendApiKey/resendWebhookSecret are deliberately excluded — this data
+	// flows to the client for hydration, and the settings form never needs
+	// to display either secret back (see +page.svelte's "leave blank to
+	// keep current" pattern).
+	const { resendApiKey, resendWebhookSecret, ...publicationSafe } = pub;
+	return {
+		publication: {
+			...publicationSafe,
+			hasResendApiKey: !!resendApiKey,
+			hasResendWebhookSecret: !!resendWebhookSecret
+		}
+	};
 };
 
 export const actions: Actions = {
@@ -55,6 +62,7 @@ export const actions: Actions = {
 		const resendFromEmail = String(data.get('resendFromEmail') ?? '') || null;
 		const resendSegmentId = String(data.get('resendSegmentId') ?? '') || null;
 		const resendTopicId = String(data.get('resendTopicId') ?? '') || null;
+		const resendWebhookSecret = String(data.get('resendWebhookSecret') ?? '') || null;
 
 		const pub = await db.query.publication.findFirst();
 		if (!pub) return { saved: false };
@@ -95,7 +103,8 @@ export const actions: Actions = {
 				resendFromName,
 				resendFromEmail,
 				resendSegmentId,
-				resendTopicId
+				resendTopicId,
+				...(resendWebhookSecret ? { resendWebhookSecret } : {})
 			})
 			.where(eq(publication.id, pub.id));
 

@@ -231,6 +231,22 @@
 					/>
 				</div>
 			</div>
+			<div class="field">
+				<label for="resendWebhookSecret">Resend webhook signing secret</label>
+				<input
+					class="input"
+					id="resendWebhookSecret"
+					name="resendWebhookSecret"
+					type="password"
+					placeholder={pub?.hasResendWebhookSecret ? '••••••••••••••••' : 'Not set'}
+				/>
+				<p style="font-size:12px;color:var(--color-neutral-400);margin:6px 0 0">
+					In Resend, add a webhook pointed at <code>{'{your domain}'}/api/webhooks/resend</code>
+					subscribed to <code>email.opened</code> and <code>email.clicked</code>, then paste its
+					signing secret here — this is what makes open/click rates in Analytics real. Leave blank
+					to keep the current secret.
+				</p>
+			</div>
 
 			<div style="border-top:2px solid var(--color-divider);padding-top:24px;display:flex;gap:8px">
 				<button

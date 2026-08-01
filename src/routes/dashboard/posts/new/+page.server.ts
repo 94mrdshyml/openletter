@@ -1,9 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
 import { post, subscriber } from '$lib/server/db/schema';
 import { parsePostForm } from '$lib/server/post-form';
+import { sendPostPublishedBroadcast } from '$lib/server/mail';
 
 // Every action authorizes itself rather than trusting the /dashboard gate in
 // hooks.server.ts — see docs/SECURITY_AUDIT.md F-01. The gate covers this
@@ -42,13 +43,13 @@ export const actions: Actions = {
 			.returning();
 		redirect(303, `/dashboard/posts/${created.id}`);
 	},
-	publish: async ({ request, platform, locals }) => {
+	publish: async ({ request, platform, locals, url }) => {
 		requireAdmin(locals);
 		const env = platform!.env;
 		const db = getDb(env.DB);
 		const parsed = await parsePostForm(request, env);
-		const publishedAt =
-			parsed.scheduledAt && parsed.scheduledAt > new Date() ? parsed.scheduledAt : new Date();
+		const isScheduled = !!parsed.scheduledAt && parsed.scheduledAt > new Date();
+		const publishedAt = isScheduled ? parsed.scheduledAt : new Date();
 		const [created] = await db
 			.insert(post)
 			.values({
@@ -63,6 +64,20 @@ export const actions: Actions = {
 				publishedAt
 			})
 			.returning();
+
+		// Scheduled posts don't send yet — there's no cron to fire the email
+		// later when publishedAt arrives, same gap as their public visibility
+		// (query-time filtered, not push-published). See docs/SESSION_LOG.md.
+		if (!isScheduled) {
+			const sent = await sendPostPublishedBroadcast(env, url.origin, created);
+			if (sent) {
+				await db
+					.update(post)
+					.set({ resendBroadcastId: sent.broadcastId, sentCount: sent.sentCount })
+					.where(eq(post.id, created.id));
+			}
+		}
+
 		redirect(303, `/dashboard/posts/${created.id}`);
 	}
 };
