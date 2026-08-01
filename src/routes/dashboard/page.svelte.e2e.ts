@@ -17,7 +17,10 @@ test('shows subscriber count and published posts', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard');
 	await expect(page.getByText('Subscribers')).toBeVisible();
-	await expect(page.getByText('847')).toBeVisible();
+	await expect(page.getByText('0', { exact: true })).toBeVisible();
+	await expect(
+		page.getByRole('link', { name: 'The Quiet Realignment of Central Asian Gas Routes' })
+	).toBeVisible();
 	await expect(page.getByRole('link', { name: 'New post' })).toBeVisible();
 });
 

@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { publication, posts, draftPosts } from '$lib/mock-data';
+	import { page } from '$app/state';
 	import { formatPostDateShort } from '$lib/format';
 	import DraftIcon from '$lib/components/icons/DraftIcon.svelte';
 	import PublishedIcon from '$lib/components/icons/PublishedIcon.svelte';
 	import PlusIcon from '$lib/components/icons/PlusIcon.svelte';
+	import type { PageProps } from './$types';
+
+	let { data }: PageProps = $props();
+
+	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 </script>
 
 <svelte:head>
-	<title>Dashboard · {publication.name}</title>
+	<title>Dashboard · {name}</title>
 </svelte:head>
 
 <div class="container-wide" style="padding:40px 40px 48px">
@@ -22,7 +27,7 @@
 			<div
 				style="font-family:var(--font-heading);font-weight:800;font-size:48px;line-height:1;letter-spacing:-0.03em;color:var(--color-text)"
 			>
-				{publication.subscriberCount}
+				{data.subscriberCount}
 			</div>
 		</div>
 		<a
@@ -35,7 +40,7 @@
 		</a>
 	</div>
 
-	{#if draftPosts.length > 0}
+	{#if data.drafts.length > 0}
 		<div style="margin:0 0 32px">
 			<h6
 				style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 12px"
@@ -43,9 +48,9 @@
 				Drafts
 			</h6>
 			<div style="border-top:2px solid var(--color-divider)">
-				{#each draftPosts as draft (draft.slug)}
+				{#each data.drafts as draft (draft.id)}
 					<a
-						href={resolve('/dashboard/posts/new')}
+						href={resolve('/dashboard/posts/[id]', { id: draft.id })}
 						style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--color-divider);text-decoration:none;color:inherit"
 					>
 						<DraftIcon />
@@ -53,7 +58,7 @@
 							>{draft.title}</span
 						>
 						<span style="font-size:12px;color:var(--color-neutral-500)"
-							>Edited {draft.editedRelative}</span
+							>Edited {formatPostDateShort(draft.updatedAt.toISOString().slice(0, 10))}</span
 						>
 					</a>
 				{/each}
@@ -68,11 +73,11 @@
 			Published
 		</h6>
 		<div style="border-top:2px solid var(--color-divider)">
-			{#each posts as post, i (post.slug)}
+			{#each data.published as post, i (post.id)}
 				<a
 					href={resolve('/(public)/p/[slug]', { slug: post.slug })}
 					style="display:flex;align-items:center;gap:12px;padding:14px 0;text-decoration:none;color:inherit;{i <
-					posts.length - 1
+					data.published.length - 1
 						? 'border-bottom:1px solid var(--color-divider)'
 						: ''}"
 				>
@@ -80,9 +85,11 @@
 					<span style="font-family:var(--font-heading);font-weight:800;font-size:15px;flex:1"
 						>{post.title}</span
 					>
-					<span style="font-size:12px;color:var(--color-neutral-500)"
-						>{formatPostDateShort(post.date)}</span
-					>
+					{#if post.publishedAt}
+						<span style="font-size:12px;color:var(--color-neutral-500)"
+							>{formatPostDateShort(post.publishedAt.toISOString().slice(0, 10))}</span
+						>
+					{/if}
 				</a>
 			{/each}
 		</div>
