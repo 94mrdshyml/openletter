@@ -2,6 +2,43 @@
 
 ---
 
+## Hotfix 21 — Widen article text column
+
+**Date & Time (IST):** 2026-08-01 22:15 IST
+**Status:** Completed
+**Branch:** fix/widen-article-column
+
+### What We Built
+
+User flagged that the post-detail page's text column felt too narrow. Widened `.container-narrow` (shared CSS class, `src/app.css`) from 680px to 760px max-width. This class is only used by the post detail page (`(public)/p/[slug]/+page.svelte`) — confirmed via grep before changing it, so no other page's layout is affected.
+
+This supersedes the earlier explicit "680px is a deliberate prose-measure decision, don't widen" note from Hotfix 20 — the user has now explicitly asked for wider, so that's the current decision.
+
+### How We Built It
+
+- One-line CSS change, no markup/component changes. The image "bleed" technique (`.bleed-image`, `.post-body img`) computes its width from the container's own padding via `clamp()`, so it automatically stays correct at the new container width — no follow-up change needed there.
+
+### In Scope
+
+- `.container-narrow` max-width 680px → 760px.
+
+### Out of Scope
+
+- No changes to homepage `.container` (860px) or editor `.container-wide` (1120px) — user only asked about the article/post page.
+
+### Breaking Changes
+
+NONE
+
+### Notes for Future Sessions
+
+- No live browser-QA tool (gstack) was available in this session — verification relied on `bun run check` / `test:unit` / `test:e2e` / `build` all green, plus manual code inspection (single CSS value, single-use class, confirmed via grep). Recommend a quick live look at the post page next session if there's ever doubt.
+- Local `bun run check` and `bun run test:e2e` both hit the known Windows `wrangler types --check` UV_HANDLE_CLOSING crash again this session — same fix as before: run `bunx wrangler types` standalone once, then retry.
+- Local e2e also hit the documented D1-cold-start flake (`globalSetup: publish post failed with 500`) twice in a row this time, not just once — wiping `.wrangler/state/v3/d1` and reapplying migrations (`wrangler d1 migrations apply openletter --local`) resolved it on the third run. Worth wiping local D1 state proactively at the start of an e2e session rather than waiting for the failure.
+- 680px was the previous deliberate choice for prose reading measure; 760px is now the current one. If a future request asks to narrow it back, that's a legitimate ask, not a regression.
+
+---
+
 ## Hotfix 20 — Homepage post cards + bigger post-page images
 
 **Date & Time (IST):** 2026-08-01 21:40 IST
