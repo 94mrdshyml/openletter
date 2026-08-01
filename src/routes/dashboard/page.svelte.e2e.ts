@@ -16,7 +16,10 @@ test('stays on /dashboard when navigated to', async ({ page }) => {
 test('shows subscriber count and published posts', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard');
-	await expect(page.getByText('Subscribers')).toBeVisible();
+	// getByText('Subscribers') alone now also matches the "Subscribers" nav
+	// link (dashboard/subscribers) — scope to the stat card's own <div>
+	// label, not the top nav's <a>.
+	await expect(page.locator('div').filter({ hasText: /^Subscribers$/ })).toBeVisible();
 	await expect(page.getByText('0', { exact: true })).toBeVisible();
 	await expect(
 		page.getByRole('link', { name: 'The Quiet Realignment of Central Asian Gas Routes' })

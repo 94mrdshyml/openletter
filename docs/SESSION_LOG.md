@@ -2,6 +2,54 @@
 
 ---
 
+## Session 20 — Subscriber list (received/opened/clicked counts, unsubscribe tracking)
+
+**Date & Time (IST):** 2026-08-02 06:15 IST
+**Status:** Completed
+**Branch:** feature/session-20-subscriber-list
+
+### What We Built
+
+User asked for a subscriber list: email, subscribed date, newsletters received, opens, clicks, and unsubscribe date if applicable. Two of those five columns (received count, unsubscribed date) didn't exist anywhere yet — no per-subscriber send record, and no unsubscribe tracking at all, since PRD feature #6 routes unsubscribing entirely through Resend's own hosted Topic preference page (nothing in this app previously heard about it happening).
+
+Researched Resend's `contact.updated` webhook payload before building: it carries an account-wide `unsubscribed: boolean`, not a per-Topic flag. Fine for this project (single Segment/Topic per publication, PRD.md §10), so it's a direct, unambiguous signal — extended the existing webhook endpoint (`/api/webhooks/resend`, built last session) to handle this event type alongside `email.opened`/`email.clicked`, rather than standing up a second endpoint.
+
+### How We Built It
+
+- **Schema** (migration `0009_awesome_nekra.sql`, one `ALTER TABLE ADD COLUMN`): `subscriber.unsubscribedAt`, nullable, set from the webhook — never anything the app itself decides.
+- **`/api/webhooks/resend`**: new branch for `event.type === 'contact.updated'` — looks up the subscriber by `data.email`, sets `unsubscribedAt` to now if `data.unsubscribed` is true, clears it back to `null` if false (handles a contact re-subscribing later). Same signature-verification gate as the existing event types; nothing new on the auth side.
+- **`dashboard/subscribers`** (new route — `+page.server.ts` + `+page.svelte`): "Newsletters received" isn't a stored per-delivery record (there isn't one — every subscriber sits on the same single Segment/Topic, so a post either went to everyone or no one). It's computed at read time: count of sent posts (`sentCount` not null) whose `publishedAt` falls between the subscriber's `subscribedAt` and `unsubscribedAt` (or now, if still subscribed). Opened/clicked counts come from `post_email_event` (built last session), grouped by `recipientEmail` across all posts. All computed in JS over small in-memory arrays, same self-hosted-scale reasoning as last session's analytics growth chart — no new SQL date-bucketing.
+- **Nav**: added a "Subscribers" tab to `AdminNav.svelte` and the `current`-tab logic in `dashboard/+layout.svelte`.
+
+### A regression caught by the test suite, not by inspection
+
+Adding the "Subscribers" nav link broke a pre-existing test (`dashboard/page.svelte.e2e.ts`'s "shows subscriber count and published posts") — `page.getByText('Subscribers')` started matching both the new nav link and the dashboard overview's own "Subscribers" stat-card label, a strict-mode violation. Fixed by scoping the locator to the stat card's `<div>` specifically (`page.locator('div').filter({ hasText: /^Subscribers$/ })`) rather than the ambiguous text match. Caught by re-running the full suite before opening the PR, per this project's own Definition of Done — exactly the case that check exists for.
+
+### Testing
+
+- `dashboard/subscribers`: nav-stay test, unauthenticated-redirect test, and a heading-visibility test that deliberately avoids asserting a specific subscriber count or empty-vs-table state — other specs create real subscriber-adjacent state against this same shared D1 (single-publication model, no per-test isolation), so a specific count isn't a safe assumption, same lesson learned in the last two sessions' analytics/settings specs.
+- Webhook: added a `contact.updated` e2e test — signs and posts a real event for a non-matching email, asserts a graceful 200 no-op. **Doesn't test the actual `unsubscribedAt` mutation on a real row** — no existing e2e helper creates a genuine `subscriber` row (the test-login bypass in `auth-test.ts` has no `databaseHooks`, unlike the real `auth.ts`, so `loginAsTestReader` never inserts one; only a real magic-link click does, which e2e can't do without intercepting an actual email). Extending test auth to fabricate one was out of scope — that file is security-sensitive (F-02 privilege-escalation history) and touching it wasn't part of this ask.
+
+### In Scope
+
+- `dashboard/subscribers` page, `contact.updated` webhook handling, `subscriber.unsubscribedAt` column, nav entry, `PRD.md`/`CLAUDE.md` updated.
+
+### Out of Scope
+
+- Per-subscriber send/delivery history (which specific emails a subscriber actually got, beyond the derived "received count") — not stored, would need a real per-recipient delivery table.
+- Manually unsubscribing a reader from the dashboard (writer-initiated) — only reader-initiated (via Resend's Topic page) is wired up.
+
+### Breaking Changes
+
+NONE — additive column only.
+
+### Notes for Future Sessions
+
+- If a future session wants true per-delivery e2e coverage (real subscriber row + real webhook mutation, verified in the UI), it needs a way to create a genuine `subscriber` row in tests without a live email round-trip — likely extending `auth-test.ts`'s test login bypass to also run the `databaseHooks`-equivalent insert, or a dedicated test-only seed endpoint. Flag this to the user before touching `auth-test.ts` given its F-02 history.
+- "Received count" is a derived value, recomputed on every page load — fine at self-hosted scale, but if a publication ever has thousands of subscribers and dozens of sent posts, the current O(subscribers × sent posts) JS filter is the place to look first.
+
+---
+
 ## Session 19 — Real publish → email + webhook-backed open/click analytics
 
 **Date & Time (IST):** 2026-08-02 05:30 IST
