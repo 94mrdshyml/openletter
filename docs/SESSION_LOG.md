@@ -55,6 +55,82 @@ The naive design — "pick whichever of light/dark text has higher contrast agai
 
 ---
 
+## Hotfix 21 — Widen article text column
+
+**Date & Time (IST):** 2026-08-01 22:15 IST
+**Status:** Completed
+**Branch:** fix/widen-article-column
+
+### What We Built
+
+User flagged that the post-detail page's text column felt too narrow. Widened `.container-narrow` (shared CSS class, `src/app.css`) from 680px to 760px max-width. This class is only used by the post detail page (`(public)/p/[slug]/+page.svelte`) — confirmed via grep before changing it, so no other page's layout is affected.
+
+This supersedes the earlier explicit "680px is a deliberate prose-measure decision, don't widen" note from Hotfix 20 — the user has now explicitly asked for wider, so that's the current decision.
+
+### How We Built It
+
+- One-line CSS change, no markup/component changes. The image "bleed" technique (`.bleed-image`, `.post-body img`) computes its width from the container's own padding via `clamp()`, so it automatically stays correct at the new container width — no follow-up change needed there.
+
+### In Scope
+
+- `.container-narrow` max-width 680px → 760px.
+
+### Out of Scope
+
+- No changes to homepage `.container` (860px) or editor `.container-wide` (1120px) — user only asked about the article/post page.
+
+### Breaking Changes
+
+NONE
+
+### Notes for Future Sessions
+
+- No live browser-QA tool (gstack) was available in this session — verification relied on `bun run check` / `test:unit` / `test:e2e` / `build` all green, plus manual code inspection (single CSS value, single-use class, confirmed via grep). Recommend a quick live look at the post page next session if there's ever doubt.
+- Local `bun run check` and `bun run test:e2e` both hit the known Windows `wrangler types --check` UV_HANDLE_CLOSING crash again this session — same fix as before: run `bunx wrangler types` standalone once, then retry.
+- Local e2e also hit the documented D1-cold-start flake (`globalSetup: publish post failed with 500`) twice in a row this time, not just once — wiping `.wrangler/state/v3/d1` and reapplying migrations (`wrangler d1 migrations apply openletter --local`) resolved it on the third run. Worth wiping local D1 state proactively at the start of an e2e session rather than waiting for the failure.
+- 680px was the previous deliberate choice for prose reading measure; 760px is now the current one. If a future request asks to narrow it back, that's a legitimate ask, not a regression.
+
+---
+
+## Hotfix 20 — Homepage post cards + bigger post-page images
+
+**Date & Time (IST):** 2026-08-01 21:40 IST
+**Status:** Completed
+**Branch:** fix/post-cards-and-image-sizing
+
+### What We Built
+
+User flagged two things from the live site: (1) the homepage post list was plain text only — title/date/excerpt, nothing visual, didn't "look good"; (2) on the post detail page, the cover/embedded images looked too small relative to the page.
+
+- Homepage (`(public)/+page.svelte`): each post row is now a card — a 180px cover-image thumbnail (1200:630 crop, same ratio as the detail page's hero) next to the title/date/excerpt, falling back cleanly to the existing text-only row when a post has no `coverImageUrl`. Title turns accent-colored on hover. Stacks to a single column below 520px.
+- Post detail page (`(public)/p/[slug]/+page.svelte`): both the cover image and every embedded body image now bleed to the full edge of the narrow article container instead of being squeezed by the article's own inline padding — `width: calc(100% + 2 * clamp(...))` with matching negative side margins. This makes images noticeably bigger **without** widening the 680px text column itself, which was a deliberate earlier design decision (narrow measure for prose readability) that this fix intentionally left alone.
+
+### How We Built It
+
+- Both changes are pure template/CSS — no server or schema changes. `post.coverImageUrl` was already available in the homepage's post list query (no column restriction on that `findMany`), so no server code needed touching.
+- Verified the bleed technique and the card layout by rendering the _exact_ production markup/CSS as standalone static HTML via gstack browse (not just code review) — screenshotted both, confirmed the thumbnail/fallback states on the homepage and the visible width difference between text and images on the post page.
+
+### In Scope
+
+- Homepage post-row cards with cover thumbnails + graceful no-cover fallback.
+- Post-page cover + body image sizing (bleed wider than the text column).
+
+### Out of Scope
+
+- No change to the 680px text-column width itself (explicit earlier decision, left alone).
+- No change to the post editor, publish flow, or any server logic.
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- **Local dev gotcha discovered this session: `curl -F` interprets any field value starting with `<` as "read from a local file"** (classic curl multipart footgun) — trying to POST body HTML like `<p>...</p>` via `-F "body=<p>...` silently fails with a file-read error. Use `--form-string` instead of `-F` for any field whose value might start with `<` or `@`.
+- Also hit: publishing a post locally with an external image URL (e.g. picsum.photos) in `coverImageUrl`/body caused the publish request to hang/timeout in this sandboxed local dev environment — never got a real end-to-end screenshot with an actual cover image rendered through the live app+DB pipeline this session, only the isolated static-HTML verification described above. If a future session has working outbound network access from local dev, worth a real check; otherwise verify on the live site after deploy (user can publish a test post with a cover image and eyeball it).
+
+---
+
 ## Session 16 — Real dashboard overview data (subscriber count + post list)
 
 **Date & Time (IST):** 2026-08-01 13:15 IST

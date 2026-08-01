@@ -65,7 +65,8 @@
 		<img
 			src={data.post.coverImageUrl}
 			alt=""
-			style="width:100%;aspect-ratio:1200/630;object-fit:cover;margin:0 0 32px"
+			class="bleed-image"
+			style="aspect-ratio:1200/630;object-fit:cover;margin-top:0;margin-bottom:32px"
 		/>
 	{/if}
 	{#if data.gated}
@@ -107,11 +108,20 @@
 </div>
 
 <style>
+	/* Images bleed to the edge of the narrow article column instead of being
+	   squeezed by the article's own inline horizontal padding — makes them
+	   noticeably bigger than the text without widening the reading column
+	   itself (680px was a deliberate choice for prose measure). */
+	.bleed-image,
+	.post-body :global(img) {
+		display: block;
+		width: calc(100% + 2 * clamp(20px, 8vw, 90px));
+		max-width: none;
+		margin-left: calc(-1 * clamp(20px, 8vw, 90px));
+		margin-right: calc(-1 * clamp(20px, 8vw, 90px));
+	}
 	.post-body :global(p) {
 		margin: 0 0 20px;
-	}
-	.post-body :global(img) {
-		max-width: 100%;
 	}
 	.post-body :global(blockquote) {
 		border-left: 3px solid var(--color-accent);
