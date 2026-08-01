@@ -9,7 +9,7 @@
 import { request } from '@playwright/test';
 
 export default async function globalSetup() {
-	const baseURL = 'http://localhost:4173';
+	const baseURL = `http://localhost:${process.env.E2E_PORT ?? 4173}`;
 	const ctx = await request.newContext({ baseURL, extraHTTPHeaders: { Origin: baseURL } });
 
 	const setupRes = await ctx.post('/setup', {

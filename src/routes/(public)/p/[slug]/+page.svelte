@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import { formatPostDate } from '$lib/format';
 	import SubscribeForm from '$lib/components/SubscribeForm.svelte';
+	import SubscribePopup from '$lib/components/SubscribePopup.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -9,6 +11,7 @@
 	const name = $derived(data.publication?.name ?? 'OpenLetter');
 	const description = $derived(data.publication?.description ?? '');
 	const seoDescription = $derived(data.post.excerpt ?? data.post.subtitle ?? description);
+	const isAnon = $derived(!page.data.user);
 
 	// Twitter's oEmbed blockquote markup (see tweet-extension.ts) needs its
 	// own widgets.js to actually render as a rich embed — only loaded when
@@ -73,7 +76,10 @@
 		<div style="font-size:17px;line-height:1.7;color:var(--color-text)">
 			<p style="margin:0 0 20px">{data.post.excerpt}</p>
 		</div>
-		<div style="border-top:2px solid var(--color-divider);padding:32px 0 0;margin-top:12px">
+		<div
+			id="subscribe"
+			style="border-top:2px solid var(--color-divider);padding:32px 0 0;margin-top:12px"
+		>
 			<h4 style="font-size:18px;margin:0 0 8px">Subscribe to keep reading</h4>
 			<p style="font-size:15px;color:var(--color-neutral-600);margin:0 0 20px;line-height:1.5">
 				This post is for subscribers only. Enter your email to get full access.
@@ -89,7 +95,7 @@
 </article>
 {#if !data.gated}
 	<div class="container-narrow" style="padding:48px clamp(20px, 8vw, 90px)">
-		<div style="border-top:2px solid var(--color-divider);padding:36px 0 0">
+		<div id="subscribe" style="border-top:2px solid var(--color-divider);padding:36px 0 0">
 			<h4 style="font-size:18px;margin:0 0 8px">Read more from {name}</h4>
 			<p style="font-size:15px;color:var(--color-neutral-600);margin:0 0 20px;line-height:1.5">
 				{description}
@@ -106,6 +112,9 @@
 		{name} · Powered by OpenLetter
 	</div>
 </div>
+{#if isAnon && !data.gated}
+	<SubscribePopup {name} />
+{/if}
 
 <style>
 	/* Images bleed to the edge of the narrow article column instead of being
