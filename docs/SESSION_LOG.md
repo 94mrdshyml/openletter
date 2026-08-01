@@ -2,6 +2,47 @@
 
 ---
 
+## Session 16 — Real dashboard overview data (subscriber count + post list)
+
+**Date & Time (IST):** 2026-08-01 13:15 IST
+**Status:** Completed
+**Branch:** feature/session-16-dashboard-overview-data
+
+### What We Built
+
+`dashboard/+page.svelte` (the writer dashboard overview) was still reading `mock-data.ts` — hardcoded "847" subscribers and a fixed list of geopolitics-themed sample posts, even though `dashboard/posts` was already wired to real D1 data back in Session 15. Added a `+page.server.ts` load function so the overview shows the real subscriber count and the real drafts/published post lists.
+
+### How We Built It
+
+- `src/routes/dashboard/+page.server.ts`: new file. Subscriber count via `db.select({ count: sql<number>\`count(*)\` }).from(subscriber)` — same pattern already used in `dashboard/posts/new/+page.server.ts` and `dashboard/posts/[id]/+page.server.ts`, not invented fresh. Drafts/published queries copied verbatim from `dashboard/posts/+page.server.ts` (`eq(post.status, ...)`, ordered by `updatedAt`/`publishedAt`).
+- `src/routes/dashboard/+page.svelte`: swapped the `mock-data.ts` import for `data: PageProps`, publication name now read from `page.data.publication` (same pattern as `dashboard/posts/+page.svelte`). Draft links now go to `/dashboard/posts/[id]` (real, editable) instead of the mock's dead `/dashboard/posts/new` link. Draft "Edited …" label switched from mock's canned relative string (`editedRelative`, which doesn't exist on the real `post` row) to `formatPostDateShort(draft.updatedAt...)` — an absolute short date, reusing the existing formatter rather than writing a new relative-time utility that wasn't asked for.
+- `dashboard/page.svelte.e2e.ts`: the one existing assertion on `'847'` was mock-only and would now always fail (real seeded subscriber count is 0). Updated to assert `0` subscribers and the real seeded post title instead.
+- `dashboard/analytics/+page.svelte` is untouched — still mock, out of scope (explicitly separate per user's own scoping in this session; also structurally blocked on the not-yet-built publish→email pipeline, since open/click stats have nothing real to source until posts actually get emailed via Resend).
+
+### In Scope
+
+- Real subscriber count + real drafts/published post list on `/dashboard` only.
+- Updated the one stale e2e assertion this touched.
+
+### Out of Scope
+
+- `dashboard/analytics/+page.svelte` — still fully mock (open/click rates need the publish→email pipeline to exist first; that's the natural next session per Session 15's notes).
+- No schema changes, no new queries beyond what `dashboard/posts` already established.
+
+### Breaking Changes
+
+NONE — additive `+page.server.ts`, `mock-data.ts` still used by the untouched analytics page.
+
+### Notes for Future Sessions
+
+- **Local e2e on Windows hit two pre-existing environment issues, both already documented but worth re-confirming:** (1) local D1 persists across repeated runs in one session — a second full `test:e2e` run against un-wiped `.wrangler/state/v3/d1` failed globalSetup with a slug collision on the seeded post, exactly the Session 15/Hotfix 5 lesson. Fixed by wiping `.wrangler/state/v3/d1` and re-running `wrangler d1 migrations apply openletter --local` before each fresh full suite run. (2) Port 4173 was held by a stray `workerd` process left over from a concurrent session in the `openletter-wt-mobile-padding` worktree — asked the user before killing it (shared local resource, another session's live server), user approved, killed it, e2e proceeded normally. Neither issue is caused by this session's code change.
+- `local bun run lint` flagged ~110 files again — reconfirmed via Hotfix 11's note this is Windows CRLF noise, not real. Ran `prettier --check` scoped to just this session's 2 changed files; both were already correctly formatted (the CRLF warning was cosmetic, `--write` produced no diff beyond what was already staged).
+- Full 55-test Playwright suite passed clean on a fresh local D1, including the historically-flaky `(public)/page.svelte.e2e.ts` subscribe-confirmation test (Hotfix 8/15) — not touched this session, just noting it didn't flake this run.
+- Manually verified in a real browser via gstack `browse` (logged in through the `/api/test/login` bypass, cookie set manually since that endpoint returns JSON rather than `Set-Cookie` headers — same gotcha `e2e-global-setup.ts` already documents): `/dashboard` renders real subscriber count (0) and real draft/published titles with correct dates, no console errors, and clicking a draft correctly navigates to `/dashboard/posts/[id]` with that post loaded in the editor.
+- **Next natural session, per Session 15's own note, is still the publish → email pipeline** (`POST /broadcasts` against the Segment/Topic already wired in Hotfixes 6-9). Once that exists, `dashboard/analytics` becomes unblockable with real Resend open/click data.
+
+---
+
 ## Hotfix 17 — AdminNav "My profile" link + PublicNav mobile nav crowding fix
 
 **Date & Time (IST):** 2026-07-27 13:05 IST
