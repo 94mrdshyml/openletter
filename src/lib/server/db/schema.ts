@@ -105,7 +105,13 @@ export const subscriber = sqliteTable('subscriber', {
 	resendContactId: text('resend_contact_id'),
 	subscribedAt: integer('subscribed_at', { mode: 'timestamp' })
 		.notNull()
-		.$defaultFn(() => new Date())
+		.$defaultFn(() => new Date()),
+	// Set from the webhook's contact.updated event (see
+	// src/routes/api/webhooks/resend), not from anything in this app — a
+	// reader unsubscribes via Resend's own hosted Topic preference page
+	// (PRD.md feature #6), and Resend reports the change back to us. Cleared
+	// (set back to null) if the same contact re-subscribes later.
+	unsubscribedAt: integer('unsubscribed_at', { mode: 'timestamp' })
 });
 
 // One row per (post, recipient, event type) — the webhook handler inserts

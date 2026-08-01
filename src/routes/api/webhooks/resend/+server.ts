@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
-import { post, postEmailEvent } from '$lib/server/db/schema';
+import { post, postEmailEvent, subscriber } from '$lib/server/db/schema';
 import { verifyResendWebhook } from '$lib/server/webhook';
 
 type ResendWebhookEvent = {
@@ -10,6 +10,8 @@ type ResendWebhookEvent = {
 	data: {
 		broadcast_id?: string;
 		to?: string[];
+		email?: string;
+		unsubscribed?: boolean;
 	};
 };
 
@@ -33,6 +35,21 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		event = JSON.parse(body);
 	} catch {
 		return json({ ok: false }, { status: 400 });
+	}
+
+	// Resend's only account-wide `unsubscribed` boolean, not a per-Topic
+	// flag — fine here since this project is single-Segment/single-Topic
+	// per publication (PRD.md §10), so "unsubscribed" only ever means one
+	// thing. Also handles a contact re-subscribing (unsubscribed flips back
+	// to false), clearing unsubscribedAt.
+	if (event.type === 'contact.updated') {
+		const email = event.data.email;
+		if (!email) return json({ ok: true });
+		await db
+			.update(subscriber)
+			.set({ unsubscribedAt: event.data.unsubscribed ? new Date() : null })
+			.where(eq(subscriber.email, email));
+		return json({ ok: true });
 	}
 
 	if (event.type !== 'email.opened' && event.type !== 'email.clicked') {

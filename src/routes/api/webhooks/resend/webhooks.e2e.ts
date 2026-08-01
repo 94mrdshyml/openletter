@@ -74,3 +74,35 @@ test('rejects and accepts webhook events once a secret is configured', async ({ 
 	expect(goodRes.status()).toBe(200);
 	expect(await goodRes.json()).toEqual({ ok: true });
 });
+
+test('accepts a contact.updated (unsubscribe) event for a non-matching email', async ({ page }) => {
+	// No real subscriber to flip an unsubscribedAt on here — creating one
+	// requires a real magic-link click, which e2e can't do without
+	// intercepting a real email (see docs/SESSION_LOG.md). This still
+	// exercises the real code path (parses the event, no-ops safely when
+	// no subscriber row matches), same as the broadcast-id no-match case
+	// above.
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	await page.getByLabel('Resend webhook signing secret').fill(SECRET);
+	await page.getByRole('button', { name: 'Save changes' }).click();
+	await expect(page.getByText('Saved.')).toBeVisible();
+
+	const body =
+		'{"type":"contact.updated","data":{"email":"nonexistent@example.com","unsubscribed":true}}';
+	const id = 'msg_3';
+	const timestamp = String(Math.floor(Date.now() / 1000));
+	const signature = await sign(id, timestamp, body);
+
+	const res = await page.request.post(`${BASE}/api/webhooks/resend`, {
+		data: body,
+		headers: {
+			'content-type': 'application/json',
+			'svix-id': id,
+			'svix-timestamp': timestamp,
+			'svix-signature': `v1,${signature}`
+		}
+	});
+	expect(res.status()).toBe(200);
+	expect(await res.json()).toEqual({ ok: true });
+});

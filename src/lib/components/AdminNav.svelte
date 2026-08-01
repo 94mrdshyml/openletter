@@ -3,7 +3,8 @@
 	import { page } from '$app/state';
 	import AccountMenu from './AccountMenu.svelte';
 
-	let { current }: { current: 'dashboard' | 'analytics' | 'posts' | 'settings' } = $props();
+	let { current }: { current: 'dashboard' | 'analytics' | 'posts' | 'subscribers' | 'settings' } =
+		$props();
 
 	const name = $derived(page.data.publication?.name ?? 'OpenLetter');
 
@@ -11,6 +12,7 @@
 		{ id: 'dashboard', label: 'Dashboard', href: resolve('/dashboard') },
 		{ id: 'analytics', label: 'Analytics', href: resolve('/dashboard/analytics') },
 		{ id: 'posts', label: 'Posts', href: resolve('/dashboard/posts') },
+		{ id: 'subscribers', label: 'Subscribers', href: resolve('/dashboard/subscribers') },
 		{ id: 'settings', label: 'Settings', href: resolve('/dashboard/settings') }
 	] as const;
 </script>
