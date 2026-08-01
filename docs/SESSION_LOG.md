@@ -2,6 +2,58 @@
 
 ---
 
+## Session 18 — Notion-style editor: slash menu + floating bubble menu
+
+**Date & Time (IST):** 2026-08-02 03:15 IST
+**Status:** Completed
+**Branch:** feature/session-18-editor-slash-bubble-menu
+
+### What We Built
+
+User asked for a "Notion-style" editor experience, calling the existing fixed-toolbar-only editor "too basic" and specifically naming a `/` menu. Full Notion parity (drag-handle reordering, nested blocks, tables, columns) was flagged as scope creep against Simplicity First; scoped down with the user via AskUserQuestion to two additions on top of the existing `TiptapEditor.svelte`, which is otherwise untouched:
+
+- A `/` slash-command menu — type `/` anywhere to filter and insert a block: Heading 2/3, bullet list, numbered list, block quote, code block, divider, image, YouTube, or tweet.
+- A floating bubble menu that appears above a text selection with bold/italic/link/heading — the fixed top toolbar stays as-is for mouse-only users, so this is additive, not a replacement.
+
+Explicitly deferred (not asked for this round): drag-handle block reordering/hover `+` controls — heaviest lift, needs its own extensions and UI; left for a future session if wanted.
+
+### How We Built It
+
+- **`@tiptap/suggestion`** (new dependency, matches the existing `@tiptap/*` `^3.29.0` pin) drives the slash menu — it owns filtering-as-you-type, keyboard nav dismissal, and outside-click handling; this session only supplies the item list and the popup renderer.
+- **`src/lib/tiptap/slash-items.ts`** — plain data: the 9 insertable blocks, each a `{title, description, keywords, command}`. Image/YouTube/tweet items call the exact same `onImagePick`/`window.prompt` flow as their existing toolbar buttons (via a `buildSlashCommandItems(deps)` factory), so a block inserted via `/` behaves identically to one inserted via the toolbar.
+- **`src/lib/tiptap/slash-command.svelte.ts`** — the Tiptap `Extension`, named `.svelte.ts` (not `.ts`) specifically so its `render()` controller can use `$state` for the highlighted row and imperatively `mount()`/`unmount()` (Svelte 5's imperative component API) a `SlashMenu.svelte` instance into the element `@tiptap/suggestion`'s own `props.mount()` positions and keeps anchored (flip/autoUpdate included, no extra floating-ui usage needed on our side). Props are passed as `get` accessors (`get items() { ... }`) — the documented pattern for making imperatively-mounted Svelte components reactive to state that changes after mount.
+- **`SlashMenu.svelte`** — presentational only: renders the filtered list, highlights the selected row, calls `onSelect` on click (`onmousedown` + `preventDefault`, not `onclick`, so the browser never blurs the editor/collapses the selection before the command runs — same reason the bubble menu buttons below do the same).
+- **Bubble menu** deliberately skipped `@tiptap/extension-bubble-menu`/tippy.js — positioned instead off the browser's own `window.getSelection().getRangeAt(0).getBoundingClientRect()` inside `TiptapEditor.svelte`'s existing `onSelectionUpdate`/`onTransaction` hooks (next to the pre-existing `syncActiveState`), hidden on `onBlur`. One dependency lighter, and accurate for multi-line selections without extra math.
+- **`BubbleMenu.svelte`** — reuses the existing `BoldIcon`/`ItalicIcon`/`LinkIcon`/`HeadingIcon` components and the existing `active` state object already computed for the fixed toolbar, so highlighting stays in sync between both toolbars for free. Styled with `var(--radius-md)`/`var(--radius-sm)` (both `0px`) rather than a one-off hardcoded radius, matching the design system's no-rounded-corners rule.
+
+### Testing
+
+Added three e2e tests to `dashboard/posts/new/page.svelte.e2e.ts`: typing `/head` and pressing Enter inserts a real `<h2>`; typing an unmatched query shows "No matching blocks" and Escape dismisses it; selecting text shows the bubble toolbar and clicking Bold produces a `<strong>`. Full suite (62 tests) still green, including the pre-existing "shows the editor toolbar" test — the fixed toolbar was intentionally left alone.
+
+### Gotcha rediscovered (documented, not new)
+
+Running e2e locally requires `VITE_ENABLE_TEST_AUTH=true bunx playwright test` — the build-time half of the F-02 test-auth gate (see `docs/SECURITY_AUDIT.md`) isn't set by a bare `playwright test` invocation the way `bun run test:e2e` sets it up; without it `/api/test/login` 404s and `e2e-global-setup.ts` fails on `loginRes.json()`. Already documented in `.dev.vars.example`, just re-tripped over it this session.
+
+### In Scope
+
+- Slash command menu (9 block types), floating bubble menu (bold/italic/link/heading), e2e coverage, `DESIGN.md` updated with a new "Post editor (Tiptap)" section.
+
+### Out of Scope
+
+- Drag-handle block reordering, hover `+`/`...` block controls, tables, columns, nested/toggle blocks — none of these were in the confirmed scope; a future session if the user wants to go further toward full Notion parity.
+
+### Breaking Changes
+
+NONE.
+
+### Notes for Future Sessions
+
+- If a future session adds drag-handle reordering, it'll need `@tiptap/extension-drag-handle` (or equivalent) plus real hover-tracked node positions — meaningfully heavier than this session's additions, budget accordingly.
+- The `.svelte.ts` naming convention (rather than plain `.ts`) is now precedent in this repo for any future non-`.svelte` file that needs runes (`$state`/`$derived`) — see `slash-command.svelte.ts` for the pattern (imperative `mount()`/`unmount()` + `get`-accessor props for reactivity).
+- Branch note: PR #37 (Session 17) was already merged to `main` by the time this session started, so this session branched fresh off `origin/main` as `feature/session-18-editor-slash-bubble-menu` rather than stacking on the old session-17 branch — worth checking `gh pr view <N> --json state` before branching when picking up mid-stream in a multi-session repo.
+
+---
+
 ## Session 17 — Publication personalization (accent color + fonts, with contrast safety)
 
 **Date & Time (IST):** 2026-08-01 18:30 IST

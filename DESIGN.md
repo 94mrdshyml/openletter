@@ -46,6 +46,15 @@ A writer can set two things in `dashboard/settings`, applied site-wide (public s
 
 Reusable Svelte components in `src/lib/components/`: `PublicNav.svelte`, `AdminNav.svelte`, `SubscribeForm.svelte`, plus small single-purpose icon components in `src/lib/components/icons/`.
 
+## Post editor (Tiptap)
+
+`TiptapEditor.svelte` still keeps the fixed top toolbar (bold/italic/link/heading/image/quote/YouTube/tweet), and adds two Notion-style additions on top of it:
+
+- **Slash ("/") menu** — typing `/` on any line opens a filterable popup (`SlashMenu.svelte`) to insert a block: Heading 2/3, bullet list, numbered list, block quote, code block, divider, image, YouTube, or tweet. Built on `@tiptap/suggestion`; the item list and filtering logic live in `src/lib/tiptap/slash-items.ts`, the ProseMirror plugin glue in `src/lib/tiptap/slash-command.svelte.ts` (a `.svelte.ts` module so its render controller can hold `$state` and imperatively `mount()`/`unmount()` the menu component). Image/YouTube/tweet items reuse the exact same insert flow as their toolbar buttons.
+- **Floating bubble menu** — selecting text shows a small floating bold/italic/link/heading toolbar (`BubbleMenu.svelte`) above the selection, positioned off the browser's own `Selection.getRangeAt(0).getBoundingClientRect()` (no extra positioning library).
+
+Deliberately not built this round: drag-handle block reordering/hover controls and a `+`-menu (heavier lift — left for a future session if wanted).
+
 ## Screens built (Session 7)
 
 Public: homepage (`/`), post page (`/p/[slug]`).

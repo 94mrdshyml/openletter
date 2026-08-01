@@ -16,6 +16,44 @@ test('shows the editor toolbar and title/body fields', async ({ page }) => {
 	await expect(page.getByRole('textbox', { name: 'Post body' })).toBeVisible();
 });
 
+test('slash menu inserts a heading block', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/posts/new');
+	const body = page.getByRole('textbox', { name: 'Post body' });
+	await expect(body).toBeVisible();
+	await body.click();
+	await page.keyboard.type('/head');
+	await expect(page.getByRole('option', { name: /Heading 2/ })).toBeVisible();
+	await page.keyboard.press('Enter');
+	await expect(body.locator('h2')).toBeVisible();
+});
+
+test('slash menu filters as you type and shows no results for garbage input', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/posts/new');
+	const body = page.getByRole('textbox', { name: 'Post body' });
+	await expect(body).toBeVisible();
+	await body.click();
+	await page.keyboard.type('/zzzznotarealblock');
+	await expect(page.getByText('No matching blocks')).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(page.getByText('No matching blocks')).toHaveCount(0);
+});
+
+test('bubble menu appears on text selection and toggles bold', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/posts/new');
+	const body = page.getByRole('textbox', { name: 'Post body' });
+	await expect(body).toBeVisible();
+	await body.click();
+	await page.keyboard.type('Select this text');
+	await page.keyboard.press('Control+A');
+	const bubble = page.getByRole('toolbar', { name: 'Text formatting' });
+	await expect(bubble).toBeVisible();
+	await bubble.getByRole('button', { name: 'Bold' }).click();
+	await expect(body.locator('strong')).toHaveText('Select this text');
+});
+
 test('writes a post, saves it as a draft, and it appears in the drafts list', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard/posts/new');

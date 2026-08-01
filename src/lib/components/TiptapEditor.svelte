@@ -7,6 +7,9 @@
 	import Placeholder from '@tiptap/extension-placeholder';
 	import Youtube from '@tiptap/extension-youtube';
 	import { Tweet } from '$lib/tiptap/tweet-extension';
+	import { createSlashCommand } from '$lib/tiptap/slash-command.svelte';
+	import { buildSlashCommandItems } from '$lib/tiptap/slash-items';
+	import BubbleMenu from './BubbleMenu.svelte';
 	import BoldIcon from './icons/BoldIcon.svelte';
 	import ItalicIcon from './icons/ItalicIcon.svelte';
 	import LinkIcon from './icons/LinkIcon.svelte';
@@ -37,6 +40,17 @@
 	// block on every keystroke, which would also thrash focus/hover state).
 	let active = $state({ bold: false, italic: false, link: false, heading: false, quote: false });
 
+	// Floating selection toolbar (Notion/Medium-style bubble menu). Positioned
+	// off the browser's own selection rect rather than Tiptap's coordsAtPos,
+	// since getBoundingClientRect() already accounts for multi-line
+	// selections and needs no extra math for where the bubble should sit.
+	let bubbleMenu = $state<{ visible: boolean; rect: { top: number; left: number; width: number } }>(
+		{
+			visible: false,
+			rect: { top: 0, left: 0, width: 0 }
+		}
+	);
+
 	function syncActiveState() {
 		if (!editor) return;
 		active = {
@@ -48,6 +62,25 @@
 		};
 	}
 
+	function syncBubbleMenu() {
+		if (!editor || editor.state.selection.empty || !editor.isFocused) {
+			bubbleMenu.visible = false;
+			return;
+		}
+		const domSelection = window.getSelection();
+		if (!domSelection || domSelection.rangeCount === 0) {
+			bubbleMenu.visible = false;
+			return;
+		}
+		const rect = domSelection.getRangeAt(0).getBoundingClientRect();
+		if (rect.width === 0 && rect.height === 0) {
+			bubbleMenu.visible = false;
+			return;
+		}
+		bubbleMenu.visible = true;
+		bubbleMenu.rect = { top: rect.top, left: rect.left, width: rect.width };
+	}
+
 	onMount(() => {
 		editor = new Editor({
 			element,
@@ -57,7 +90,8 @@
 				Image,
 				Placeholder.configure({ placeholder }),
 				Youtube.configure({ nocookie: true, width: 640, height: 360 }),
-				Tweet
+				Tweet,
+				createSlashCommand(buildSlashCommandItems({ onImagePick }))
 			],
 			content,
 			editorProps: {
@@ -67,8 +101,17 @@
 				onChange(editor.getHTML());
 				syncActiveState();
 			},
-			onSelectionUpdate: syncActiveState,
-			onTransaction: syncActiveState
+			onSelectionUpdate: () => {
+				syncActiveState();
+				syncBubbleMenu();
+			},
+			onTransaction: () => {
+				syncActiveState();
+				syncBubbleMenu();
+			},
+			onBlur: () => {
+				bubbleMenu.visible = false;
+			}
 		});
 	});
 
@@ -186,6 +229,17 @@
 		<TwitterIcon />
 	</button>
 </div>
+
+{#if bubbleMenu.visible}
+	<BubbleMenu
+		rect={bubbleMenu.rect}
+		{active}
+		onBold={() => editor?.chain().focus().toggleBold().run()}
+		onItalic={() => editor?.chain().focus().toggleItalic().run()}
+		onLink={insertLink}
+		onHeading={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+	/>
+{/if}
 
 <div bind:this={element} class="tiptap-body"></div>
 
