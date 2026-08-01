@@ -2,6 +2,59 @@
 
 ---
 
+## Session 17 — Publication personalization (accent color + fonts, with contrast safety)
+
+**Date & Time (IST):** 2026-08-01 18:30 IST
+**Status:** Completed
+**Branch:** feature/session-17-publication-personalization
+
+### What We Built
+
+`PRD.md` §7 explicitly excluded "custom themes" from v1 as Ghost's moat — this session deliberately narrows that decision rather than reversing it, after confirming scope with the user first (accent color + heading/body fonts only; explicitly not border-radius, spacing, layout, or arbitrary CSS). Writers can now set a brand accent color and heading/body fonts (from a curated Google Fonts list) in `dashboard/settings`, applied site-wide. The user specifically flagged the "light accent + white button text = unreadable" failure mode, which drove the contrast-safety design below.
+
+### How We Built It
+
+- **Schema:** `publication` gains `accentColor` (`text`, default `'#ec3013'`), `headingFont`/`bodyFont` (`text`, default `'Archivo'`), all `NOT NULL`. Migration `0007_loose_joseph.sql`, pure `ALTER TABLE ADD COLUMN`.
+- **`src/lib/fonts.ts`:** a curated list of 12 Google Fonts, not free text — every entry confirmed to ship the 400/600/800 weights the design system relies on. This is also the actual security boundary: a submitted font name can only ever be one of these exact strings, which is what makes it safe to interpolate into a Google Fonts URL and an inline `style` attribute without separate escaping.
+- **`src/lib/color.ts`:** WCAG relative-luminance contrast math. `isValidHexColor` (strict `#rrggbb` regex) is the equivalent boundary for the color field. `pickOnAccentColor()` is the actual interesting design decision here — see "A real finding" below.
+- **`src/app.css`:** `--color-accent-100..900` changed from fixed hex values to `color-mix()` expressions derived from `--color-accent`, so any accent color automatically gets a full tonal ramp for free — nothing downstream needs special-case logic for a custom color. `--color-accent-2` (secondary) stays fixed, not personalizable. `.btn-primary` now reads `color: var(--color-on-accent, var(--color-bg))` instead of a hardcoded `var(--color-bg)`.
+- **Root layout (`src/routes/+layout.server.ts` + `+layout.svelte`):** the layout load computes `onAccentColor` once via `pickOnAccentColor`; the layout wraps `{@render children()}` in a `div style="display:contents"` carrying `--color-accent`, `--color-on-accent`, `--font-heading`, `--font-body` as inline custom properties, and builds the Google Fonts `<link>` dynamically (`googleFontsHref`) instead of the old static Archivo link in `app.html`. Both the font and color values are re-validated here (`isValidFont`/`isValidHexColor`) as defense in depth, even though the settings action is the only writer — this is the one place that turns them into a live stylesheet URL and inline CSS.
+- **Settings (`dashboard/settings/+page.server.ts` + `+page.svelte`):** new "Personalization" section — two `<select>`s (heading/body font) and a native `<input type="color">`, plus a live preview card (sample heading, a real "New post" button rendered with the picked color/font, sample body text) and an inline contrast note. The save action validates both fields server-side and silently falls back to the previous stored value on anything invalid (same pattern the rest of this action already uses for other fields) — confirmed with a negative-path e2e test that POSTs `"><script>...` / `NotARealFont; DROP TABLE...` directly and asserts the stored values don't move.
+
+### A real finding: the shipped default doesn't fully meet WCAG AA, and the fix had to respect that
+
+The naive design — "pick whichever of light/dark text has higher contrast against the accent" — turned out to be wrong. Building `color.spec.ts` surfaced that **the current shipped default accent (`#ec3013`) only reaches ~3.76:1 with the design system's existing light button text**, below full WCAG AA (4.5:1). Under a pure "always pick the mathematically better option" rule, that default would flip to dark text purely because dark is marginally higher (~3.95:1) — silently changing the look of every existing deployment's primary button, unasked. `pickOnAccentColor()` in `lib/color.ts` instead prefers light text (the shipped default, unchanged) unless it drops below a 3:1 readability floor (WCAG's large/bold-text minimum) — only then does it switch to dark. This means the default accent keeps its exact original button today, while a genuinely pale accent (the user's actual stated concern) gets dark text automatically. `WCAG_AA_CONTRAST` (4.5) is kept as a separate, softer threshold surfaced only as an informational note in settings — "contrast is 3.8:1, below the recommended 4.5:1, but text has switched to light/dark automatically" — not a hard gate, since the shipped default itself doesn't clear it and nothing should force a re-save to "fix" something that already ships fine. This was caught by a failing unit test, not designed in from the start — the first version of `color.spec.ts` asserted an "always meets AA" invariant that turned out to be mathematically false for this system's specific off-white/off-black text tokens (only true for pure black/white pairings).
+
+### Testing quirks worth remembering (not app bugs)
+
+- **`page.getByLabel('...').fill(hex)` on `<input type="color">` was suspected flaky at first** (a test failed 5/5 on repeat) — investigated via `.evaluate()` + manual `dispatchEvent` as a theorized fix, which didn't actually change anything. The real cause was unrelated to `.fill()`: **Prettier's line-wrap of the warning `<p>`'s template text put a literal newline mid-sentence** (`"...recommended\n\t\t\t4.5:1..."`), and Svelte doesn't collapse static-text whitespace at compile time the way a browser collapses it visually on screen — so a `getByText(/below the recommended 4\.5:1/)` regex with a literal space was brittle against reformatting. Fixed by using `\s+` in the regex instead of a literal space, and reverted the speculative `.evaluate()` helper once the real cause was found (Simplicity First — don't keep a fix justified by a wrong theory).
+- Confirmed via a real browser (gstack `browse`) at every stage, not just Playwright: default site (unpersonalized) renders pixel-identical to before this session, a customized publication (blue accent, Poppins/Libre Franklin) renders correctly on the homepage, a post page, and the dashboard, and the contrast warning genuinely appears/disappears live as the color picker changes.
+- **Port 4173 was held by a stray process from a concurrent worktree session twice this session** (`openletter-wt-mobile-padding`) — same situation as Session 16, asked the user before killing it both times, approved both times.
+
+### In Scope
+
+- Accent color + heading/body font personalization, contrast-safe button text, curated font list, live preview, informational contrast note, negative-path validation coverage, docs updated (`PRD.md` §6/§7, `DESIGN.md`).
+
+### Out of Scope
+
+- **Border-radius, spacing, layout, or arbitrary CSS personalization** — explicitly asked about and explicitly declined by the user this session; the system's `--radius-*: 0px` and `--space-*` tokens are untouched and not exposed anywhere.
+- Self-hosting the personalized fonts (still Google Fonts CDN, same privacy tradeoff `docs/SECURITY_AUDIT.md` F-15 already flagged for the old static Archivo link — now extended to whichever fonts a publication picks, still not remediated).
+- A secondary/`--color-accent-2` picker — stays fixed, wasn't asked for.
+
+### Breaking Changes
+
+- **Visual, for any publication that changes its accent/fonts away from the defaults** — that's the intended effect. Unpersonalized publications are pixel-identical to before (verified).
+- **`app.html` no longer hardcodes the Archivo Google Fonts `<link>`** — it's now built dynamically per-request in `+layout.svelte`. Functionally identical for any publication still on the default fonts, but worth knowing if a future session greps for the old static link and doesn't find it.
+
+### Notes for Future Sessions
+
+- **`src/lib/fonts.ts`'s `GOOGLE_FONTS` list is the actual security/UX boundary for both font fields** — don't ever accept a font name as free text. If a future session wants to add more fonts, verify the new entry ships 400/600/800 weights before adding it, same as the existing 12.
+- **`pickOnAccentColor`'s 3:1 floor is a deliberate, documented compromise, not an arbitrary number** — re-read the comment in `lib/color.ts` before changing it; it exists specifically to avoid silently changing the shipped default's look.
+- If a future session ever wants to self-host the personalized fonts (closing the F-15 privacy gap for real), that's a genuinely different design — variable font files would need to be fetched/cached per publication, not baked in at build time the way the old single static Archivo link was.
+- `docs/` isn't the only place Prettier lints markdown — root-level `.md` files (`DESIGN.md`, `PRD.md`, this file) aren't in `.prettierignore` either. Ran `prettier --write` on both before committing, same lesson Session 14's audit first flagged for `docs/SECURITY_AUDIT.md`.
+
+---
+
 ## Hotfix 22 — Homepage subtitle, post-page subscribe CTA, scroll-triggered popup
 
 **Date & Time (IST):** 2026-08-01 23:05 IST
@@ -118,6 +171,8 @@ NONE.
 
 - **Local dev gotcha discovered this session: `curl -F` interprets any field value starting with `<` as "read from a local file"** (classic curl multipart footgun) — trying to POST body HTML like `<p>...</p>` via `-F "body=<p>...` silently fails with a file-read error. Use `--form-string` instead of `-F` for any field whose value might start with `<` or `@`.
 - Also hit: publishing a post locally with an external image URL (e.g. picsum.photos) in `coverImageUrl`/body caused the publish request to hang/timeout in this sandboxed local dev environment — never got a real end-to-end screenshot with an actual cover image rendered through the live app+DB pipeline this session, only the isolated static-HTML verification described above. If a future session has working outbound network access from local dev, worth a real check; otherwise verify on the live site after deploy (user can publish a test post with a cover image and eyeball it).
+
+---
 
 ## Session 16 — Real dashboard overview data (subscriber count + post list)
 

@@ -6,10 +6,10 @@
 		<meta name="text-scale" content="scale" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-		<link
-			href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap"
-			rel="stylesheet"
-		/>
+		<!-- Font stylesheet is loaded dynamically per-publication — see
+		     src/routes/+layout.svelte, which sets it based on the
+		     publication's heading/body font (default: Archivo, same as
+		     before personalization existed). -->
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

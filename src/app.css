@@ -20,15 +20,20 @@
 	--color-neutral-800: #444141;
 	--color-neutral-900: #2d2b2b;
 
-	--color-accent-100: #fff2ef;
-	--color-accent-200: #ffe0d9;
-	--color-accent-300: #ffc4b8;
-	--color-accent-400: #ff9783;
-	--color-accent-500: #ff563c;
-	--color-accent-600: #dd2b0f;
-	--color-accent-700: #ae1800;
-	--color-accent-800: #7c1405;
-	--color-accent-900: #4d170e;
+	/* Derived from --color-accent rather than fixed hexes, so a per-publication
+	   accent color (see dashboard/settings) automatically gets a full tonal
+	   ramp for free — nothing else in the app needs to know a custom accent
+	   is in play. --color-accent-2's ramp stays fixed; it's a secondary
+	   design-system color, not part of publication personalization. */
+	--color-accent-100: color-mix(in srgb, var(--color-accent) 8%, white);
+	--color-accent-200: color-mix(in srgb, var(--color-accent) 18%, white);
+	--color-accent-300: color-mix(in srgb, var(--color-accent) 32%, white);
+	--color-accent-400: color-mix(in srgb, var(--color-accent) 60%, white);
+	--color-accent-500: var(--color-accent);
+	--color-accent-600: color-mix(in srgb, var(--color-accent) 85%, black);
+	--color-accent-700: color-mix(in srgb, var(--color-accent) 70%, black);
+	--color-accent-800: color-mix(in srgb, var(--color-accent) 55%, black);
+	--color-accent-900: color-mix(in srgb, var(--color-accent) 40%, black);
 
 	--color-accent-2-100: #fff2ef;
 	--color-accent-2-200: #ffe0da;
@@ -197,7 +202,10 @@ figcaption {
 }
 .btn-primary {
 	background: var(--color-accent);
-	color: var(--color-bg);
+	/* --color-on-accent is set per-request in the root layout, computed from
+	   the publication's accent color (see lib/color.ts) — falls back to the
+	   existing --color-bg (light text) when unset. */
+	color: var(--color-on-accent, var(--color-bg));
 }
 .btn-primary:hover {
 	background: var(--color-accent-600);

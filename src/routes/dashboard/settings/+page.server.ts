@@ -6,6 +6,8 @@ import { invitation, publication } from '$lib/server/db/schema';
 import { sendInvitationEmail } from '$lib/server/mail';
 import { uploadLogo } from '$lib/server/media';
 import { slugify } from '$lib/slug';
+import { isValidFont } from '$lib/fonts';
+import { isValidHexColor } from '$lib/color';
 
 const INVITATION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -44,6 +46,10 @@ export const actions: Actions = {
 		const category = String(data.get('category') ?? '') || null;
 		const logo = data.get('logo');
 
+		const submittedAccentColor = String(data.get('accentColor') ?? '');
+		const submittedHeadingFont = String(data.get('headingFont') ?? '');
+		const submittedBodyFont = String(data.get('bodyFont') ?? '');
+
 		const resendApiKey = String(data.get('resendApiKey') ?? '') || null;
 		const resendFromName = String(data.get('resendFromName') ?? '') || null;
 		const resendFromEmail = String(data.get('resendFromEmail') ?? '') || null;
@@ -58,6 +64,16 @@ export const actions: Actions = {
 			logoUrl = await uploadLogo(env, logo);
 		}
 
+		// Only the curated font list / a strict #rrggbb hex are ever written —
+		// these values feed directly into an inline style and a Google Fonts
+		// URL in the root layout, so an invalid submission is silently
+		// ignored (keeps the previous value) rather than stored.
+		const accentColor = isValidHexColor(submittedAccentColor)
+			? submittedAccentColor
+			: pub.accentColor;
+		const headingFont = isValidFont(submittedHeadingFont) ? submittedHeadingFont : pub.headingFont;
+		const bodyFont = isValidFont(submittedBodyFont) ? submittedBodyFont : pub.bodyFont;
+
 		await db
 			.update(publication)
 			.set({
@@ -67,6 +83,9 @@ export const actions: Actions = {
 				description,
 				category,
 				logoUrl,
+				accentColor,
+				headingFont,
+				bodyFont,
 				// The API key field never round-trips to the client (see load),
 				// so a blank submission means "unchanged," not "clear it" — the
 				// other Resend fields DO round-trip pre-filled, so a blank
