@@ -132,7 +132,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 	});
 
 	return {
-		subscriberCount: allSubscribers.length,
+		subscriberCount: allSubscribers.filter((s) => !s.unsubscribedAt).length,
 		newThisWeek,
 		postsPublished: publishedPosts.length,
 		avgOpenRate,

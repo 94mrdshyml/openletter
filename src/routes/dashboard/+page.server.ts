@@ -1,4 +1,4 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, eq, isNull, sql } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
 import { post, subscriber } from '$lib/server/db/schema';
@@ -8,7 +8,8 @@ export const load: PageServerLoad = async ({ platform }) => {
 
 	const [{ count: subscriberCount }] = await db
 		.select({ count: sql<number>`count(*)` })
-		.from(subscriber);
+		.from(subscriber)
+		.where(isNull(subscriber.unsubscribedAt));
 	const drafts = await db.query.post.findMany({
 		where: eq(post.status, 'draft'),
 		orderBy: desc(post.updatedAt)
