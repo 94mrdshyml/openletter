@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { eq, sql } from 'drizzle-orm';
+import { eq, isNull, sql } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
 import { post, subscriber } from '$lib/server/db/schema';
@@ -22,7 +22,10 @@ export const load: PageServerLoad = async ({ params, platform }) => {
 	const existing = await db.query.post.findFirst({ where: eq(post.id, params.id) });
 	if (!existing) error(404, 'Post not found');
 
-	const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(subscriber);
+	const [{ count }] = await db
+		.select({ count: sql<number>`count(*)` })
+		.from(subscriber)
+		.where(isNull(subscriber.unsubscribedAt));
 	return { post: existing, subscriberCount: count };
 };
 

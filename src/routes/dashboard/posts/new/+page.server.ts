@@ -1,5 +1,5 @@
 import { error, redirect } from '@sveltejs/kit';
-import { eq, sql } from 'drizzle-orm';
+import { eq, isNull, sql } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
 import { post, subscriber } from '$lib/server/db/schema';
@@ -19,7 +19,10 @@ function requireAdmin(locals: App.Locals) {
 
 export const load: PageServerLoad = async ({ platform }) => {
 	const db = getDb(platform!.env.DB);
-	const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(subscriber);
+	const [{ count }] = await db
+		.select({ count: sql<number>`count(*)` })
+		.from(subscriber)
+		.where(isNull(subscriber.unsubscribedAt));
 	return { subscriberCount: count };
 };
 

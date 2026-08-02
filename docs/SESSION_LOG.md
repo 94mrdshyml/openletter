@@ -2,6 +2,52 @@
 
 ---
 
+## Hotfix 24 — Subscriber counts include unsubscribed readers
+
+**Date & Time (IST):** 2026-08-02 07:24 IST
+**Status:** Completed
+**Branch:** fix/subscriber-count-excludes-unsubscribed
+
+### What We Built
+
+User tested the real `/unsubscribe` flow from Session 21 — the reader was correctly removed from the Resend Topic, but the dashboard's "Total subscribers" stat on `dashboard/analytics` didn't move. Traced to the root cause: `subscriber.unsubscribedAt` (added Session 20) is written by the unsubscribe action but was never read back into any of the app's subscriber-count queries — every `count(*) FROM subscriber` call site counted unsubscribed rows as active. Not just the Analytics stat: the same unfiltered `count(*)` pattern existed in four places, all predating `unsubscribedAt` and never revisited when it landed.
+
+### How We Built It
+
+Added `.where(isNull(subscriber.unsubscribedAt))` (or the equivalent JS filter, for the one site already holding subscriber rows in memory) to all four count call sites:
+
+- `dashboard/+page.server.ts` — dashboard overview "Subscribers" stat
+- `dashboard/posts/new/+page.server.ts` — "N subscribers" preview shown before publish
+- `dashboard/posts/[id]/+page.server.ts` — same preview, edit view
+- `dashboard/analytics/+page.server.ts` — "Total subscribers" stat (the one in the bug report); `allSubscribers.length` → `allSubscribers.filter((s) => !s.unsubscribedAt).length`
+
+Deliberately left alone: the subscriber-growth chart (tracks historical join dates, not current active count — an unsubscribed reader still counts toward "who joined that week") and the per-subscriber list rows (already show unsubscribed readers correctly, tagged "Unsubscribed" — that's the one place the raw, unfiltered row belongs).
+
+### Testing
+
+- `bun run test:unit -- --run` — 19/19 passed.
+- `svelte-check` on the four edited files — 0 errors (ran standalone via `bunx wrangler types` + `bunx svelte-check`, working around the known Windows `wrangler types --check` `UV_HANDLE_CLOSING` crash — see prior sessions' notes).
+- No existing e2e test asserts a specific subscriber-count number affected by this change (checked `analytics/page.svelte.e2e.ts` and the webhook e2e spec) — nothing to update.
+- Not independently e2e-covered with a real unsubscribed row: same gap Session 20 already documented (`auth-test.ts`'s test-login bypass has no `databaseHooks`, so e2e can't create a genuine `subscriber` row without a live magic-link round-trip). Manual verification is via the bug report itself — a real reader unsubscribed, dashboard count was stale before this fix.
+
+### In Scope
+
+- Four subscriber-count call sites excluding unsubscribed rows.
+
+### Out of Scope
+
+- E2E coverage for the count with a real unsubscribed subscriber — blocked on the same `auth-test.ts` seeding gap Session 20 flagged; a future session's job if it's ever prioritized.
+
+### Breaking Changes
+
+NONE — display-only fix, no schema change.
+
+### Notes for Future Sessions
+
+- If a future session adds a fifth subscriber `count(*)` call site, filter by `isNull(subscriber.unsubscribedAt)` from the start — this is now the established pattern for "active subscriber count" anywhere in the app.
+
+---
+
 ## Session 21 — Newsletter bug fixes: full body, broadcast name, tracking, real unsubscribe
 
 **Date & Time (IST):** 2026-08-02 06:50 IST
