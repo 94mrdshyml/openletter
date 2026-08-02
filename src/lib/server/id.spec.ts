@@ -11,6 +11,7 @@ describe('generateId', () => {
 		expect(generateId('acct')).toMatch(/^acct_[0-9a-zA-Z]{24}$/);
 		expect(generateId('ver')).toMatch(/^ver_[0-9a-zA-Z]{24}$/);
 		expect(generateId('inv')).toMatch(/^inv_[0-9a-zA-Z]{24}$/);
+		expect(generateId('key')).toMatch(/^key_[0-9a-zA-Z]{24}$/);
 	});
 
 	it('generates unique ids', () => {

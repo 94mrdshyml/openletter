@@ -42,6 +42,28 @@ export const publication = sqliteTable('publication', {
 		.$defaultFn(() => new Date())
 });
 
+// Public API v1 (src/lib/server/api, src/routes/api/v1). Stripe-style:
+// named keys, multiple can be active at once (one per integration), revoked
+// rather than deleted so past usage stays auditable. Only a SHA-256 hash of
+// the raw key is ever stored — the raw key is shown once, at creation time,
+// in dashboard/settings, and can't be recovered afterward (only revoked and
+// replaced with a new one). lastFour is plaintext-safe (not a secret on its
+// own) and exists purely so settings can list "Zapier · ending in ab12"
+// without needing the raw key.
+export const apiKey = sqliteTable('api_key', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => generateId('key')),
+	name: text('name').notNull(),
+	hash: text('hash').notNull().unique(),
+	lastFour: text('last_four').notNull(),
+	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.$defaultFn(() => new Date()),
+	lastUsedAt: integer('last_used_at', { mode: 'timestamp' }),
+	revokedAt: integer('revoked_at', { mode: 'timestamp' })
+});
+
 // Single-row lock claimed atomically by /setup: id's PRIMARY KEY constraint
 // means only one concurrent INSERT can ever succeed, regardless of how many
 // requests hit /setup at once — this is what actually closes the race, not
