@@ -2,6 +2,10 @@
 
 Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
 
+## OpenLetter CLI
+
+To scaffold, provision, and deploy your own self-hosted OpenLetter publication on Cloudflare, see [`cli/README.md`](cli/README.md).
+
 ## Creating a project
 
 If you're seeing this, you've probably already done this step. Congrats!
