@@ -2,6 +2,51 @@
 
 ---
 
+## Hotfix 25 — Enable Workers observability + invocation logs
+
+**Date & Time (IST):** 2026-08-02 13:00 IST
+**Status:** Completed
+**Branch:** fix/enable-observability-logs
+
+### What We Built
+
+Enabled Cloudflare Workers observability (Workers Logs) and invocation logs in `wrangler.jsonc`, so requests and `console.log` output from the deployed Worker are queryable in the Cloudflare dashboard instead of only visible via `wrangler tail`.
+
+### How We Built It
+
+Added an `observability` block to `wrangler.jsonc`:
+
+```jsonc
+"observability": {
+	"enabled": true,
+	"logs": {
+		"invocation_logs": true
+	}
+}
+```
+
+Shape verified against `node_modules/wrangler/config-schema.json`'s `Observability` definition rather than guessed — `enabled` turns on Workers Logs, `logs.invocation_logs` additionally logs each Worker invocation (request metadata) alongside `console.log` output. No code changes required; this is deploy-config only.
+
+### In Scope
+
+- `wrangler.jsonc` observability config
+
+### Out of Scope
+
+- Tail Workers / Logpush to an external sink — not requested, dashboard-based observability is sufficient for now
+- Custom sampling rate (`head_sampling_rate`) — left at Cloudflare's default
+
+### Breaking Changes
+
+NONE
+
+### Notes for Future Sessions
+
+- This only takes effect after the next `wrangler deploy` — the GH Actions Watch Protocol still applies (watch CI, then confirm the Worker deployment) after this merges to `main`.
+- If future sessions need Logpush to an external destination (e.g. shipping logs to a SIEM), that's a separate `logpush` config block, not part of this change.
+
+---
+
 ## Hotfix 24 — Subscriber counts include unsubscribed readers
 
 **Date & Time (IST):** 2026-08-02 07:24 IST

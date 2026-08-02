@@ -25,5 +25,11 @@
 			"binding": "MEDIA",
 			"bucket_name": "openletter-media"
 		}
-	]
+	],
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"invocation_logs": true
+		}
+	}
 }
