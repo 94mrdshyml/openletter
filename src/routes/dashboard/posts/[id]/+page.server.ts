@@ -85,6 +85,7 @@ export const actions: Actions = {
 		// never re-notify subscribers just because the writer fixed a typo.
 		if (!alreadyPublished && !isScheduled) {
 			const sent = await sendPostPublishedBroadcast(env, url.origin, {
+				id: params.id,
 				title: parsed.title,
 				subtitle: parsed.subtitle,
 				body: parsed.body,

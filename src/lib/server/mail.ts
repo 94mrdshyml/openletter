@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { getDb } from './db';
 import { subscriber } from './db/schema';
 import { sendPostBroadcast } from './resend';
+import { buildOpenPixelUrl, buildTrackedClickUrl, rewriteLinksForTracking } from './tracking';
 import { isValidHexColor, pickOnAccentColor } from '$lib/color';
 import { isValidFont } from '$lib/fonts';
 
@@ -155,13 +156,21 @@ function renderEmailHtml(
 // publication's Segment), so there's no gating logic here the way the
 // public post page has for anonymous visitors: everyone on the send list
 // gets the full body regardless of the post's `wall` setting.
-function renderPostEmailHtml(
+async function renderPostEmailHtml(
 	pubName: string,
 	logoUrl: string | null,
 	brand: Brand,
-	post: { title: string; subtitle: string | null; body: string; coverImageUrl: string | null },
+	post: {
+		id: string;
+		title: string;
+		subtitle: string | null;
+		body: string;
+		coverImageUrl: string | null;
+	},
 	postUrl: string,
-	unsubscribeUrl: string
+	unsubscribeUrl: string,
+	origin: string,
+	trackingSecret: string
 ) {
 	const brandMark = logoUrl
 		? `<table role="presentation" cellpadding="0" cellspacing="0">
@@ -201,7 +210,15 @@ function renderPostEmailHtml(
 		? `<p style="margin:0 0 28px;font-family:${brand.bodyFont},${EMAIL_FONT_FALLBACK};font-size:17px;line-height:1.6;color:#605d5d">${post.subtitle}</p>`
 		: '';
 
-	const body = applyHeadingFontToBody(post.body, brand.headingFont);
+	// Every outbound link (post body + the "Read online" CTA) routes through
+	// /api/track/click first — first-party click tracking, see
+	// src/lib/server/tracking.ts. The unsubscribe link below is built
+	// separately and deliberately left untouched.
+	const buildClickUrl = (url: string) => buildTrackedClickUrl(origin, trackingSecret, post.id, url);
+	const trackedBody = await rewriteLinksForTracking(post.body, buildClickUrl);
+	const body = applyHeadingFontToBody(trackedBody, brand.headingFont);
+	const trackedPostUrl = await buildClickUrl(postUrl);
+	const pixelUrl = buildOpenPixelUrl(origin, post.id);
 
 	return `<!doctype html>
 <html>
@@ -244,7 +261,7 @@ function renderPostEmailHtml(
 						<tr>
 							<td style="padding:0 40px 44px">
 								<a
-									href="${postUrl}"
+									href="${trackedPostUrl}"
 									style="display:inline-block;background:${brand.accentColor};color:${brand.onAccentColor};font-weight:800;font-size:15px;text-decoration:none;padding:14px 32px"
 									>Read online</a
 								>
@@ -268,6 +285,7 @@ function renderPostEmailHtml(
 				</td>
 			</tr>
 		</table>
+		<img src="${pixelUrl}" width="1" height="1" alt="" style="display:none;width:1px;height:1px" />
 	</body>
 </html>`;
 }
@@ -358,6 +376,7 @@ export async function sendPostPublishedBroadcast(
 	env: Env,
 	origin: string,
 	post: {
+		id: string;
 		title: string;
 		subtitle: string | null;
 		body: string;
@@ -378,13 +397,15 @@ export async function sendPostPublishedBroadcast(
 	// unescaped/unencoded exactly as written for Resend to recognize it; see
 	// src/routes/unsubscribe for what this link does.
 	const unsubscribeUrl = `${origin}/unsubscribe?email={{{contact.email}}}`;
-	const html = renderPostEmailHtml(
+	const html = await renderPostEmailHtml(
 		pub.name,
 		pub.logoUrl,
 		resolveBrand(pub),
 		post,
 		postUrl,
-		unsubscribeUrl
+		unsubscribeUrl,
+		origin,
+		env.BETTER_AUTH_SECRET
 	);
 
 	const broadcastId = await sendPostBroadcast(

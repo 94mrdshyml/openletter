@@ -21,7 +21,7 @@
 
 <div class="container-wide" style="padding:40px">
 	<div
-		style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:2px solid var(--color-divider);margin:0 0 40px"
+		style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:2px solid var(--color-divider);margin:0 0 40px"
 	>
 		<button
 			type="button"
@@ -72,7 +72,7 @@
 			</div>
 			<div style="font-size:12px;color:var(--color-neutral-500);margin-top:6px">All time</div>
 		</div>
-		<div style="padding:24px">
+		<div style="padding:24px;border-right:1px solid var(--color-divider)">
 			<div
 				style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 8px"
 			>
@@ -86,6 +86,19 @@
 			<div style="font-size:12px;color:var(--color-neutral-500);margin-top:6px">
 				Across {data.postPerformance.length} sent post{data.postPerformance.length === 1 ? '' : 's'}
 			</div>
+		</div>
+		<div style="padding:24px">
+			<div
+				style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-500);margin:0 0 8px"
+			>
+				Unsubscribed
+			</div>
+			<div
+				style="font-family:var(--font-heading);font-weight:800;font-size:36px;line-height:1;letter-spacing:-0.03em"
+			>
+				{data.unsubscribedCount}
+			</div>
+			<div style="font-size:12px;color:var(--color-neutral-500);margin-top:6px">All time</div>
 		</div>
 	</div>
 
@@ -174,11 +187,14 @@
 		<table class="table">
 			<thead>
 				<tr>
-					<th style="width:45%">Post</th>
+					<th style="width:35%">Post</th>
 					<th>Sent</th>
+					<th>Delivered</th>
 					<th>Opened</th>
 					<th>Open rate</th>
 					<th>Clicks</th>
+					<th>Bounced</th>
+					<th>Complained</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -188,9 +204,12 @@
 							>{row.title}</td
 						>
 						<td>{formatPostDateShort(row.publishedAt.toISOString().slice(0, 10))}</td>
+						<td>{row.delivered}</td>
 						<td>{row.opened}</td>
 						<td>{row.openRate}%</td>
 						<td>{row.clicks}</td>
+						<td>{row.bounced}</td>
+						<td>{row.complained}</td>
 					</tr>
 				{/each}
 			</tbody>

@@ -26,6 +26,7 @@ test('shows the stats row with real subscriber/post counts', async ({ page }) =>
 	await page.goto('/dashboard/analytics');
 	await expect(page.getByText('Total subscribers')).toBeVisible();
 	await expect(page.getByText('Posts published')).toBeVisible();
+	await expect(page.getByText('Unsubscribed').first()).toBeVisible();
 });
 
 test('shows an empty state for post performance when nothing has been sent yet', async ({

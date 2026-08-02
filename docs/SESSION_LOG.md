@@ -2,6 +2,50 @@
 
 ---
 
+## Session 24 — First-party email analytics: delivered, opened, clicked, unsubscribed, complained, bounced
+
+**Date & Time (IST):** 2026-08-02 23:50 IST
+**Status:** Completed
+**Branch:** feature/session-24-first-party-analytics
+
+### What We Built
+
+Reversed PRD §7's "Custom analytics — Resend's built-in metrics are sufficient" decision after a real production incident: a writer sent two broadcasts and `clicked` events recorded while `opened` silently didn't, traced to Resend-side config (webhook event-type subscription and/or the per-domain open-tracking toggle) rather than a code bug. `opened`/`clicked` are now self-hosted (own pixel + signed click-redirect), and the dashboard now also tracks `delivered`, `bounced`, `complained` (spam report), and `unsubscribed` — none of which the app captured before, even though Resend already sends most of them over the webhook already in place.
+
+### How We Built It
+
+- `postEmailEvent.type` enum widened from `['opened','clicked']` to `['delivered','opened','clicked','unsubscribed','complained','bounced']`; `postId` made nullable (`unsubscribed` events have no post to attach to — Resend's `contact.updated` carries no `broadcast_id`). Migration `migrations/0011_chief_retro_girl.sql` — SQLite's standard recreate/copy/rename for a `NOT NULL` drop, read before applying, no data loss.
+- New `src/lib/server/tracking.ts`: `buildOpenPixelUrl` (no signature needed — read-only insert, no redirect), `buildTrackedClickUrl`/`verifyClickSignature` (HMAC-SHA256 via Web Crypto, keyed off a value derived from `BETTER_AUTH_SECRET` — domain-separated, not the raw secret reused, and no new `wrangler secret put` required), `rewriteLinksForTracking` (async regex rewrite of every `<a href>`, same class of transform as `mail.ts`'s existing `applyHeadingFontToBody`). Reuses `sha256Hex`/`timingSafeEqual` from `src/lib/server/api/crypto.ts` (Session 23) rather than a third duplicate.
+- `mail.ts`'s `renderPostEmailHtml`/`sendPostPublishedBroadcast` now thread `origin`, `BETTER_AUTH_SECRET`, and `post.id` through to rewrite the post body + "Read online" CTA link and inject a 1×1 pixel before `</body>`. The unsubscribe link is built separately and deliberately untouched.
+- Two new public routes: `src/routes/api/track/open` (GET, returns a static transparent GIF, always — insert failures are swallowed, the pixel must never break) and `src/routes/api/track/click` (GET, verifies `sig` before ever redirecting — a missing/invalid signature falls back to `/`, never to the attacker-supplied `url`; this is the load-bearing open-redirect fix, since the route's whole job is redirecting to a caller-supplied URL).
+- `src/routes/api/webhooks/resend/+server.ts`: dropped the `email.opened`/`email.clicked` branches entirely (self-hosted now, avoids double-counting and the Resend-config dependency that caused this session's bug report); added `email.delivered`/`email.bounced`/`email.complained` (identical shape to the old opened/clicked handling); `contact.updated` now also logs a `postId: null` `unsubscribed` event alongside the existing `subscriber.unsubscribedAt` update.
+- `dashboard/analytics`: post-performance table gained Delivered/Bounced/Complained columns; a new publication-level "Unsubscribed" stat tile (not per-post — Resend gives no send-attribution for it).
+- Test-only helper `src/routes/api/test/track-url` (double-gated exactly like the existing `api/test/login`) — e2e needs a validly-signed click URL to test the redirect path, and `BETTER_AUTH_SECRET` isn't something a test can legitimately know any other way.
+
+### In Scope
+
+- Schema + migration, `tracking.ts`, webhook handler rewrite, `mail.ts` wiring, `api/track/open`+`api/track/click` routes, analytics dashboard updates
+- `PRD.md` (§6 feature #7, §7, §10) and `CLAUDE.md` Known Gotchas updated to match the new design
+- Unit tests (`tracking.spec.ts` — signing round-trip, tamper rejection, link rewriting) and e2e coverage (webhook handler for all mapped event types + the unsubscribed-event path; `track.e2e.ts` for the pixel, a valid signed click, and the open-redirect rejection paths)
+
+### Out of Scope
+
+- Per-link click attribution (which specific link was clicked) — only aggregate click counts, matching what was asked for
+- Any UI for the `unsubscribed` timeline beyond a single aggregate count
+
+### Breaking Changes
+
+NONE — additive schema change (widened enum, nullable column), no existing behavior removed except Resend's own opened/clicked webhook events no longer being consulted (intentional, documented).
+
+### Notes for Future Sessions
+
+- **`opened`/`clicked` no longer come from Resend's webhook at all.** Don't re-add `email.opened`/`email.clicked` handling to `src/routes/api/webhooks/resend` — it would double-count against the first-party `/api/track` events.
+- **`/api/track/click`'s `sig` check is load-bearing, not incidental.** Without it the route is a textbook open redirect. If a future session touches this route, keep the "invalid signature → redirect to `/`, never to `url`" behavior.
+- **Unsubscribe events are publication-level, not per-post**, and can double-count on a redelivered `contact.updated` webhook (SQLite's unique index treats `NULL` `postId` values as distinct) — accepted as a minor gap, it's a timeline count not a rate denominator.
+- Local e2e note (not a regression): this session's full local run hit a stale-D1 issue unrelated to the code — `.wrangler/state/v3/d1` had leftover posts/slugs from a previous session's manual runs, causing `e2e-global-setup.ts`'s seed insert to fail on a slug conflict. Fix was `rm -rf .wrangler/state/v3/d1 && wrangler d1 migrations apply openletter --local` before running the suite fresh (same as what CI does every run). Two pre-existing, untouched-file e2e failures ((public)/page.svelte.e2e.ts's admin-nav test, dashboard/settings's tagline-save test) recurred across runs with zero diff in those files — consistent with the parallel-worker contention already documented in Session 22/23, not a regression from this session.
+
+---
+
 ## Session 23 — Public API v1: subscribers + posts
 
 **Date & Time (IST):** 2026-08-02 21:30 IST

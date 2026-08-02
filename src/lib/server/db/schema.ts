@@ -136,23 +136,30 @@ export const subscriber = sqliteTable('subscriber', {
 	unsubscribedAt: integer('unsubscribed_at', { mode: 'timestamp' })
 });
 
-// One row per (post, recipient, event type) — the webhook handler inserts
-// with onConflictDoNothing() against the unique index below, so a reader
-// opening the same email five times only ever produces one row. Real counts
-// (open rate, click rate) are COUNT(*) queries against this table, not
-// counters on `post`, so a duplicate delivery from Resend can never
-// double-count. Populated only by src/routes/api/webhooks/resend — never
-// written from anywhere else, and never logged (recipientEmail is PII).
+// One row per (post, recipient, event type) — inserts use
+// onConflictDoNothing() against the unique index below, so a reader opening
+// the same email five times only ever produces one row. Real counts (open
+// rate, click rate) are COUNT(*) queries against this table, not counters on
+// `post`, so a duplicate delivery can never double-count. `delivered` /
+// `bounced` / `complained` / `unsubscribed` are populated from
+// src/routes/api/webhooks/resend (Resend's own SMTP-layer events, can't be
+// self-hosted); `opened` / `clicked` are populated from the first-party
+// src/routes/api/track routes instead of Resend's webhook, since we already
+// build the email HTML ourselves. recipientEmail is PII — never logged.
 export const postEmailEvent = sqliteTable(
 	'post_email_event',
 	{
 		id: text('id')
 			.primaryKey()
 			.$defaultFn(() => generateId('pev')),
-		postId: text('post_id')
-			.notNull()
-			.references(() => post.id, { onDelete: 'cascade' }),
-		type: text('type', { enum: ['opened', 'clicked'] }).notNull(),
+		// Nullable: 'unsubscribed' events have no post to attach to — Resend's
+		// contact.updated webhook carries no broadcast_id (see CLAUDE.md's
+		// Known Gotchas), so an unsubscribe is a publication-level timeline
+		// entry, not a per-post stat.
+		postId: text('post_id').references(() => post.id, { onDelete: 'cascade' }),
+		type: text('type', {
+			enum: ['delivered', 'opened', 'clicked', 'unsubscribed', 'complained', 'bounced']
+		}).notNull(),
 		recipientEmail: text('recipient_email').notNull(),
 		createdAt: integer('created_at', { mode: 'timestamp' })
 			.notNull()
