@@ -16,8 +16,12 @@ test('stays on /dashboard when navigated to', async ({ page }) => {
 test('shows subscriber count and published posts', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard');
+	// Not asserting an exact count: the public API e2e specs (subscribers.e2e.ts)
+	// add real subscribers to this same shared D1 instance and can run in a
+	// parallel worker alongside this test, so "0" isn't a safe assumption here
+	// — only that the count renders as a real number.
 	await expect(page.locator('div').filter({ hasText: /^Subscribers$/ })).toBeVisible();
-	await expect(page.getByText('0', { exact: true })).toBeVisible();
+	await expect(page.getByText(/^\d+$/, { exact: true })).toBeVisible();
 	await expect(
 		page.getByRole('link', { name: 'The Quiet Realignment of Central Asian Gas Routes' })
 	).toBeVisible();
