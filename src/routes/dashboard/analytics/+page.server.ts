@@ -1,4 +1,4 @@
-import { desc, eq, gte, sql } from 'drizzle-orm';
+import { desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
 import { post, postEmailEvent, subscriber } from '$lib/server/db/schema';
@@ -23,6 +23,8 @@ export const load: PageServerLoad = async ({ platform }) => {
 
 	// COUNT(*) against post_email_event, not counters on `post` — see that
 	// table's own comment on why (dedup, never double-counts a re-delivery).
+	// 'unsubscribed' rows (postId: null) are excluded here — they're a
+	// publication-level stat, computed separately below.
 	const eventCounts = await db
 		.select({
 			postId: postEmailEvent.postId,
@@ -30,14 +32,35 @@ export const load: PageServerLoad = async ({ platform }) => {
 			count: sql<number>`count(*)`
 		})
 		.from(postEmailEvent)
+		.where(sql`${postEmailEvent.postId} is not null`)
 		.groupBy(postEmailEvent.postId, postEmailEvent.type);
 
-	const eventsByPost = new Map<string, { opened: number; clicked: number }>();
+	type PostEventCounts = {
+		delivered: number;
+		opened: number;
+		clicked: number;
+		complained: number;
+		bounced: number;
+	};
+	const emptyPostEvents = (): PostEventCounts => ({
+		delivered: 0,
+		opened: 0,
+		clicked: 0,
+		complained: 0,
+		bounced: 0
+	});
+	const eventsByPost = new Map<string, PostEventCounts>();
 	for (const row of eventCounts) {
-		const entry = eventsByPost.get(row.postId) ?? { opened: 0, clicked: 0 };
-		entry[row.type] = row.count;
+		if (!row.postId) continue;
+		const entry = eventsByPost.get(row.postId) ?? emptyPostEvents();
+		entry[row.type as keyof PostEventCounts] = row.count;
 		eventsByPost.set(row.postId, entry);
 	}
+
+	const [{ count: unsubscribedCount }] = await db
+		.select({ count: sql<number>`count(*)` })
+		.from(postEmailEvent)
+		.where(eq(postEmailEvent.type, 'unsubscribed'));
 
 	// Only posts that actually sent a broadcast have a real denominator —
 	// posts published before this session (or with a broken Resend config at
@@ -46,14 +69,17 @@ export const load: PageServerLoad = async ({ platform }) => {
 	const postPerformance = publishedPosts
 		.filter((p): p is typeof p & { sentCount: number; publishedAt: Date } => !!p.sentCount)
 		.map((p) => {
-			const events = eventsByPost.get(p.id) ?? { opened: 0, clicked: 0 };
+			const events = eventsByPost.get(p.id) ?? emptyPostEvents();
 			return {
 				title: p.title,
 				publishedAt: p.publishedAt,
 				sentCount: p.sentCount,
+				delivered: events.delivered,
 				opened: events.opened,
 				openRate: Math.round((events.opened / p.sentCount) * 100),
-				clicks: events.clicked
+				clicks: events.clicked,
+				complained: events.complained,
+				bounced: events.bounced
 			};
 		});
 
@@ -107,12 +133,13 @@ export const load: PageServerLoad = async ({ platform }) => {
 			count: sql<number>`count(*)`
 		})
 		.from(postEmailEvent)
+		.where(inArray(postEmailEvent.type, ['opened', 'clicked']))
 		.groupBy(postEmailEvent.recipientEmail, postEmailEvent.type);
 
 	const eventsByEmail = new Map<string, { opened: number; clicked: number }>();
 	for (const row of emailEventCounts) {
 		const entry = eventsByEmail.get(row.recipientEmail) ?? { opened: 0, clicked: 0 };
-		entry[row.type] = row.count;
+		entry[row.type as 'opened' | 'clicked'] = row.count;
 		eventsByEmail.set(row.recipientEmail, entry);
 	}
 
@@ -137,6 +164,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 		postsPublished: publishedPosts.length,
 		avgOpenRate,
 		avgClickRate,
+		unsubscribedCount,
 		postPerformance,
 		subscriberGrowth,
 		monthLabels,

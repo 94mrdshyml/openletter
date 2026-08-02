@@ -49,12 +49,33 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			.update(subscriber)
 			.set({ unsubscribedAt: event.data.unsubscribed ? new Date() : null })
 			.where(eq(subscriber.email, email));
+
+		// Logged as a publication-level timeline event (postId: null), not a
+		// per-post stat — contact.updated carries no broadcast_id, so Resend
+		// gives us no way to attribute an unsubscribe to a specific send (see
+		// CLAUDE.md's Known Gotchas). Only logged on an actual unsubscribe,
+		// not a resubscribe.
+		if (event.data.unsubscribed) {
+			await db
+				.insert(postEmailEvent)
+				.values({ postId: null, type: 'unsubscribed', recipientEmail: email });
+		}
 		return json({ ok: true });
 	}
 
-	if (event.type !== 'email.opened' && event.type !== 'email.clicked') {
-		return json({ ok: true });
-	}
+	// opened/clicked are deliberately NOT handled here — they're self-hosted
+	// via src/routes/api/track instead (see that folder + src/lib/server/
+	// tracking.ts), since we already build the email HTML ourselves. Handling
+	// them here too would double-count against the first-party events and
+	// re-couple analytics to Resend's per-domain tracking toggle / webhook
+	// event-type checkboxes, which is exactly what broke silently before.
+	const EVENT_TYPES: Record<string, 'delivered' | 'bounced' | 'complained'> = {
+		'email.delivered': 'delivered',
+		'email.bounced': 'bounced',
+		'email.complained': 'complained'
+	};
+	const mappedType = EVENT_TYPES[event.type];
+	if (!mappedType) return json({ ok: true });
 
 	const broadcastId = event.data.broadcast_id;
 	// Never log recipientEmail — reader email addresses are PII (see
@@ -71,7 +92,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		.insert(postEmailEvent)
 		.values({
 			postId: targetPost.id,
-			type: event.type === 'email.opened' ? 'opened' : 'clicked',
+			type: mappedType,
 			recipientEmail
 		})
 		.onConflictDoNothing();

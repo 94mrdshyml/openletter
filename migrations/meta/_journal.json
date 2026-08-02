@@ -78,6 +78,13 @@
 			"when": 1785665768532,
 			"tag": "0010_orange_radioactive_man",
 			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "6",
+			"when": 1785674050056,
+			"tag": "0011_chief_retro_girl",
+			"breakpoints": true
 		}
 	]
 }

@@ -27,7 +27,7 @@ async function sign(id: string, timestamp: string, body: string) {
 
 test('rejects a webhook event when no signing secret is configured', async ({ page }) => {
 	const res = await page.request.post(`${BASE}/api/webhooks/resend`, {
-		data: '{"type":"email.opened","data":{}}',
+		data: '{"type":"email.delivered","data":{}}',
 		headers: {
 			'content-type': 'application/json',
 			'svix-id': 'msg_1',
@@ -45,8 +45,10 @@ test('rejects and accepts webhook events once a secret is configured', async ({ 
 	await page.getByRole('button', { name: 'Save changes' }).click();
 	await expect(page.getByText('Saved.')).toBeVisible();
 
+	// email.delivered — no matching post (broadcast_id nonexistent), so this
+	// exercises the real handled path without a real send to attribute it to.
 	const body =
-		'{"type":"email.opened","data":{"broadcast_id":"nonexistent","to":["r@example.com"]}}';
+		'{"type":"email.delivered","data":{"broadcast_id":"nonexistent","to":["r@example.com"]}}';
 	const id = 'msg_2';
 	const timestamp = String(Math.floor(Date.now() / 1000));
 
@@ -73,6 +75,109 @@ test('rejects and accepts webhook events once a secret is configured', async ({ 
 	});
 	expect(goodRes.status()).toBe(200);
 	expect(await goodRes.json()).toEqual({ ok: true });
+});
+
+test('accepts bounced and complained events for a non-matching broadcast', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	await page.getByLabel('Resend webhook signing secret').fill(SECRET);
+	await page.getByRole('button', { name: 'Save changes' }).click();
+	await expect(page.getByText('Saved.')).toBeVisible();
+
+	for (const [type, msgId] of [
+		['email.bounced', 'msg_bounced'],
+		['email.complained', 'msg_complained']
+	]) {
+		const body = `{"type":"${type}","data":{"broadcast_id":"nonexistent","to":["r@example.com"]}}`;
+		const timestamp = String(Math.floor(Date.now() / 1000));
+		const signature = await sign(msgId, timestamp, body);
+
+		const res = await page.request.post(`${BASE}/api/webhooks/resend`, {
+			data: body,
+			headers: {
+				'content-type': 'application/json',
+				'svix-id': msgId,
+				'svix-timestamp': timestamp,
+				'svix-signature': `v1,${signature}`
+			}
+		});
+		expect(res.status()).toBe(200);
+		expect(await res.json()).toEqual({ ok: true });
+	}
+});
+
+test('ignores opened/clicked webhook events entirely (self-hosted via /api/track instead)', async ({
+	page
+}) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	await page.getByLabel('Resend webhook signing secret').fill(SECRET);
+	await page.getByRole('button', { name: 'Save changes' }).click();
+	await expect(page.getByText('Saved.')).toBeVisible();
+
+	const body =
+		'{"type":"email.opened","data":{"broadcast_id":"nonexistent","to":["r@example.com"]}}';
+	const id = 'msg_ignored_opened';
+	const timestamp = String(Math.floor(Date.now() / 1000));
+	const signature = await sign(id, timestamp, body);
+
+	const res = await page.request.post(`${BASE}/api/webhooks/resend`, {
+		data: body,
+		headers: {
+			'content-type': 'application/json',
+			'svix-id': id,
+			'svix-timestamp': timestamp,
+			'svix-signature': `v1,${signature}`
+		}
+	});
+	expect(res.status()).toBe(200);
+	expect(await res.json()).toEqual({ ok: true });
+});
+
+test('logs an unsubscribe as a publication-level event, not attributed to a post', async ({
+	page
+}) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+	await page.getByLabel('Resend webhook signing secret').fill(SECRET);
+	await page.getByRole('button', { name: 'Save changes' }).click();
+	await expect(page.getByText('Saved.')).toBeVisible();
+
+	await page.goto('/dashboard/analytics');
+	const before = Number(
+		await page
+			.getByText('Unsubscribed')
+			.first()
+			.locator('xpath=following-sibling::div[1]')
+			.innerText()
+	);
+
+	const email = `unsub-webhook-${Date.now()}@example.com`;
+	const body = JSON.stringify({ type: 'contact.updated', data: { email, unsubscribed: true } });
+	const id = `msg_unsub_${Date.now()}`;
+	const timestamp = String(Math.floor(Date.now() / 1000));
+	const signature = await sign(id, timestamp, body);
+
+	const res = await page.request.post(`${BASE}/api/webhooks/resend`, {
+		data: body,
+		headers: {
+			'content-type': 'application/json',
+			'svix-id': id,
+			'svix-timestamp': timestamp,
+			'svix-signature': `v1,${signature}`
+		}
+	});
+	expect(res.status()).toBe(200);
+
+	await page.goto('/dashboard/analytics');
+	const after = Number(
+		await page
+			.getByText('Unsubscribed')
+			.first()
+			.locator('xpath=following-sibling::div[1]')
+			.innerText()
+	);
+	expect(after).toBe(before + 1);
 });
 
 test('accepts a contact.updated (unsubscribe) event for a non-matching email', async ({ page }) => {
