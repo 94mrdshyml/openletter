@@ -5,6 +5,14 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	const pub = $derived(data.publication);
+	const apiKeys = $derived(data.apiKeys);
+
+	let copied = $state(false);
+	function copyKey(raw: string) {
+		navigator.clipboard.writeText(raw);
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
+	}
 
 	let accentColor = $state(pub?.accentColor ?? '#ec3013');
 	let headingFont = $state(pub?.headingFont ?? 'Archivo');
@@ -285,6 +293,91 @@
 					style="padding:10px 20px;min-height:42px;font-size:14px;white-space:nowrap"
 				>
 					Send invite
+				</button>
+			</form>
+		</div>
+
+		<div style="border-top:2px solid var(--color-divider);margin-top:40px;padding-top:32px">
+			<h3 style="font-size:18px;margin:0 0 4px">API keys</h3>
+			<p style="font-size:13px;color:var(--color-neutral-500);margin:0 0 16px">
+				Used to authenticate requests to the public API (subscribers, posts) — see
+				<code>docs/API.md</code>. One key per integration; revoke instead of sharing.
+			</p>
+
+			{#if form?.createdKey}
+				<div
+					style="background:var(--color-surface);border:1px solid var(--color-divider);padding:16px;margin:0 0 16px"
+				>
+					<p style="font-size:13px;margin:0 0 8px">
+						New key <strong>{form.createdKeyName}</strong> — copy it now, it won't be shown again:
+					</p>
+					<div style="display:flex;gap:8px">
+						<input class="input" readonly value={form.createdKey} style="flex:1;font-size:13px" />
+						<button
+							type="button"
+							class="btn btn-secondary"
+							style="padding:10px 16px;min-height:42px;font-size:14px;white-space:nowrap"
+							onclick={() => copyKey(form?.createdKey ?? '')}
+						>
+							{copied ? 'Copied' : 'Copy'}
+						</button>
+					</div>
+				</div>
+			{/if}
+			{#if form?.keyError}
+				<p style="font-size:14px;color:var(--color-accent-700);margin:0 0 16px">{form.keyError}</p>
+			{/if}
+
+			{#if apiKeys && apiKeys.length > 0}
+				<div style="display:flex;flex-direction:column;gap:8px;margin:0 0 20px">
+					{#each apiKeys as key (key.id)}
+						<div
+							style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--color-divider)"
+						>
+							<div>
+								<span style="font-size:14px">{key.name}</span>
+								<span style="font-size:13px;color:var(--color-neutral-500)">
+									· ending in {key.lastFour}
+									{#if key.revokedAt}
+										· revoked
+									{:else if key.lastUsedAt}
+										· last used {new Date(key.lastUsedAt).toLocaleDateString()}
+									{:else}
+										· never used
+									{/if}
+								</span>
+							</div>
+							{#if !key.revokedAt}
+								<form method="POST" action="?/revokeApiKey">
+									<input type="hidden" name="id" value={key.id} />
+									<button
+										type="submit"
+										class="btn btn-secondary"
+										style="padding:6px 14px;min-height:0;font-size:13px"
+									>
+										Revoke
+									</button>
+								</form>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+
+			<form method="POST" action="?/createApiKey" style="display:flex;gap:8px">
+				<input
+					class="input"
+					name="name"
+					placeholder="e.g. Zapier integration"
+					required
+					style="flex:1;font-size:15px;padding:10px 14px;min-height:42px"
+				/>
+				<button
+					type="submit"
+					class="btn btn-secondary"
+					style="padding:10px 20px;min-height:42px;font-size:14px;white-space:nowrap"
+				>
+					Create key
 				</button>
 			</form>
 		</div>

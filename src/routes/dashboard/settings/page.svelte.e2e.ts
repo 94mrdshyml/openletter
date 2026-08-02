@@ -105,6 +105,23 @@ test('saves the webhook signing secret, never round-tripping its value', async (
 	);
 });
 
+test('creates and revokes an API key from the settings UI', async ({ page }) => {
+	await loginAsTestWriter(page);
+	await page.goto('/dashboard/settings');
+
+	await page.getByPlaceholder('e.g. Zapier integration').fill('e2e settings key');
+	await page.getByRole('button', { name: 'Create key' }).click();
+	await expect(page.getByText("copy it now, it won't be shown again")).toBeVisible();
+	const raw = await page.locator('input[readonly]').inputValue();
+	expect(raw).toMatch(/^ol_[0-9a-f]{64}$/);
+
+	await expect(page.getByText('e2e settings key').first()).toBeVisible();
+	await expect(page.getByText(`ending in ${raw.slice(-4)}`)).toBeVisible();
+
+	await page.getByRole('button', { name: 'Revoke' }).first().click();
+	await expect(page.getByText('revoked').first()).toBeVisible();
+});
+
 test('sends an admin invite', async ({ page }) => {
 	await loginAsTestWriter(page);
 	await page.goto('/dashboard/settings');
@@ -161,6 +178,32 @@ test('a reader cannot rewrite publication settings', async ({ page }) => {
 
 	const res = await page.request.post('/dashboard/settings?/save', {
 		form: { name: 'Hijacked', resendFromEmail: 'attacker@example.com' },
+		headers: { origin: BASE }
+	});
+	expect(await res.json()).toMatchObject(GATED);
+});
+
+test('blocks an unauthenticated POST to the createApiKey action', async ({ page }) => {
+	const res = await page.request.post('/dashboard/settings?/createApiKey', {
+		form: { name: 'Hijacked key' },
+		headers: { origin: BASE }
+	});
+	expect(await res.json()).toMatchObject(GATED);
+});
+
+test('blocks an unauthenticated POST to the revokeApiKey action', async ({ page }) => {
+	const res = await page.request.post('/dashboard/settings?/revokeApiKey', {
+		form: { id: 'key_doesnotexist' },
+		headers: { origin: BASE }
+	});
+	expect(await res.json()).toMatchObject(GATED);
+});
+
+test('a reader cannot create an API key', async ({ page }) => {
+	await loginAsTestReader(page, 'reader-apikey@example.com');
+
+	const res = await page.request.post('/dashboard/settings?/createApiKey', {
+		form: { name: 'Reader-created key' },
 		headers: { origin: BASE }
 	});
 	expect(await res.json()).toMatchObject(GATED);

@@ -1,10 +1,11 @@
 import { error } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
-import { invitation, publication } from '$lib/server/db/schema';
+import { apiKey, invitation, publication } from '$lib/server/db/schema';
 import { sendInvitationEmail } from '$lib/server/mail';
 import { uploadLogo } from '$lib/server/media';
+import { generateApiKey } from '$lib/server/api/key';
 import { slugify } from '$lib/slug';
 import { isValidFont } from '$lib/fonts';
 import { isValidHexColor } from '$lib/color';
@@ -31,12 +32,27 @@ export const load: PageServerLoad = async ({ platform }) => {
 	// to display either secret back (see +page.svelte's "leave blank to
 	// keep current" pattern).
 	const { resendApiKey, resendWebhookSecret, ...publicationSafe } = pub;
+
+	// `hash` never leaves the server — only the fields settings needs to
+	// render a "Zapier · ending in ab12" style list.
+	const apiKeys = (await db.query.apiKey.findMany({ orderBy: desc(apiKey.createdAt) })).map(
+		(k) => ({
+			id: k.id,
+			name: k.name,
+			lastFour: k.lastFour,
+			createdAt: k.createdAt,
+			lastUsedAt: k.lastUsedAt,
+			revokedAt: k.revokedAt
+		})
+	);
+
 	return {
 		publication: {
 			...publicationSafe,
 			hasResendApiKey: !!resendApiKey,
 			hasResendWebhookSecret: !!resendWebhookSecret
-		}
+		},
+		apiKeys
 	};
 };
 
@@ -129,5 +145,29 @@ export const actions: Actions = {
 		await sendInvitationEmail(env, email, acceptUrl);
 
 		return { invited: true };
+	},
+	createApiKey: async ({ request, platform, locals }) => {
+		requireAdmin(locals);
+		const db = getDb(platform!.env.DB);
+		const data = await request.formData();
+		const name = String(data.get('name') ?? '').trim();
+		if (!name) return { keyError: 'Name is required' };
+
+		const { raw, hash, lastFour } = await generateApiKey();
+		await db.insert(apiKey).values({ name, hash, lastFour });
+
+		// The only time the raw key is ever sent to the client — not stored
+		// anywhere, only its hash is (see api_key table comment in schema.ts).
+		return { createdKey: raw, createdKeyName: name };
+	},
+	revokeApiKey: async ({ request, platform, locals }) => {
+		requireAdmin(locals);
+		const db = getDb(platform!.env.DB);
+		const data = await request.formData();
+		const id = String(data.get('id') ?? '');
+		if (!id) return { revoked: false };
+
+		await db.update(apiKey).set({ revokedAt: new Date() }).where(eq(apiKey.id, id));
+		return { revoked: true };
 	}
 };

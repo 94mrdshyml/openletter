@@ -2,6 +2,57 @@
 
 ---
 
+## Session 23 — Public API v1: subscribers + posts
+
+**Date & Time (IST):** 2026-08-02 21:30 IST
+**Status:** Completed
+**Branch:** feature/session-23-public-api
+
+### What We Built
+
+A first batch of a public REST API (`/api/v1`) for technically-inclined writers: add/list subscribers, unsubscribe a subscriber, and list/get published posts. Stripe-style API key management (multiple named keys, revoke instead of delete) in `dashboard/settings`.
+
+Endpoints: `GET/POST /api/v1/subscribers`, `PATCH /api/v1/subscribers/:id`, `GET /api/v1/posts`, `GET /api/v1/posts/:slug`. Full reference in `docs/API.md`.
+
+### How We Built It
+
+- New `api_key` table (`src/lib/server/db/schema.ts`) rather than a single instance-wide secret — the writer can create one key per integration and revoke any of them independently, with `lastUsedAt` tracked for visibility, mirroring Stripe's key-management UX. Only a SHA-256 hash of each key is stored; the raw `ol_<64 hex>` value is shown once, at creation time, and never round-trips to the client afterward (same never-return-a-secret pattern as `resendApiKey`/`resendWebhookSecret` on `publication`). Added `key` to `id.ts`'s `IdPrefix` union and CLAUDE.md's prefix table for the row id — the row id and the bearer secret are deliberately different values (see `src/lib/server/api/key.ts`'s comment).
+- Route files live under `src/routes/api/v1/**` (SvelteKit routing requires this — endpoints need `platform.env.DB`, so unlike `cli/` they can't be a standalone package outside the Worker build). All real logic lives in a new `src/lib/server/api/` folder so the route files stay thin: `crypto.ts` (SHA-256 + constant-time compare, mirrors `webhook.ts`'s existing Web-Crypto pattern), `key.ts` (key generation), `auth.ts` (`requireApiKey` — checks the presented token's hash against every non-revoked key), `subscribers.ts`/`posts.ts` (the actual list/add/unsubscribe/get logic), `validate.ts` (email format check — no existing validator to reuse, `SubscribeForm` relies on HTML5 `type="email"` only).
+- `addSubscriber` mirrors `auth.ts`'s `databaseHooks.user.create.after` (insert + `syncSubscriberContact`) but runs directly with no Better Auth user/magic-link involved, same bypass already used by `/setup` and `/invite/accept`. An API-added subscriber shouldn't have to click a magic link first.
+- `PATCH /subscribers/:id` unsubscribe reuses `unsubscribeContactFromTopic` (`resend.ts`) and the same honest-failure pattern as `src/routes/unsubscribe/+page.server.ts` — reports `ok:false` on a real Resend failure rather than faking success, since the real send list lives in Resend's Topic membership.
+- Posts endpoints always return the full `body` regardless of `wall` — an API key represents the writer/instance itself, not an anonymous reader session, so the subscriber-wall gate that hides body content on the public site doesn't apply.
+- Pagination is `limit`/`offset` (capped at 200), not keyset — self-hosted single-writer subscriber/post lists are expected to stay small, and nanoid ids aren't chronologically sortable, so keyset would need an extra ordering column for no real benefit yet.
+- Dashboard UI: `dashboard/settings` gets a new "API keys" section — create (name + submit, raw key shown once in a copy-to-clipboard box) and revoke (per-key button, marks `revokedAt` rather than deleting the row).
+
+### In Scope
+
+- `api_key` table + migration (`migrations/0010_orange_radioactive_man.sql`, plain `CREATE TABLE`, applied locally)
+- `src/lib/server/api/` (crypto, key, auth, subscribers, posts, validate) + unit tests for crypto/key/validate
+- `src/routes/api/v1/subscribers`, `subscribers/[id]`, `posts`, `posts/[slug]` route handlers
+- API key create/revoke UI in `dashboard/settings`, including the authorization-gate e2e tests (unauthenticated + reader-escalation) matching the existing pattern for `save`/`invite`
+- E2E coverage for the new endpoints (auth gating, add/list/unsubscribe, list/get posts, draft/wall exclusion) and for the settings UI key-management flow
+- `docs/API.md` — full endpoint reference
+
+### Out of Scope
+
+- Per-key scopes/permissions (read-only vs write, etc.) — every valid key can do everything; not asked for, would add config surface
+- Rate limiting — no Cloudflare Rate Limiting binding is provisioned by the CLI/`wrangler.jsonc` today; adding one is new infra, flagged as a known gap below
+- A `POST /api/v1/posts` (create) endpoint — the editor already owns post creation/the publish→email pipeline; an API-create would need to replicate that pipeline, deliberately not attempted here
+- Publishing/scheduling posts via the API
+
+### Breaking Changes
+
+NONE
+
+### Notes for Future Sessions
+
+- **No rate limiting exists on `/api/v1/*` yet.** If abuse or cost becomes a real concern, this needs a Cloudflare Rate Limiting binding added to `wrangler.jsonc` (and the CLI's provisioning) — not something the app can add purely in code today.
+- API keys have no scopes — any valid key can read/write subscribers and read posts. If a future session needs read-only integrations, that's a real (requested) design change, not a small addition — don't bolt on a `scope` column without thinking through what it gates.
+- `requireApiKey` writes `lastUsedAt` on every authenticated request (one extra D1 write per API call). Fine at expected self-hosted-single-writer traffic levels; revisit if it ever shows up as a hot path.
+- Two local-only e2e failures were observed and left unaddressed this session, matching a pattern already documented in Session 22: `dashboard/page.svelte.e2e.ts`'s "shows subscriber count and published posts" and "logs out and re-gates the dashboard" fail intermittently on this Windows machine under Playwright's parallel workers, touching zero files changed this session. Confirmed pre-existing/environmental, not a regression — rely on CI (Linux runner) as authoritative.
+
+---
+
 ## Session 22 — CLI: `openletter create`/`deploy`/`d1`/`r2`/`secrets`
 
 **Date & Time (IST):** 2026-08-02 14:30 IST
