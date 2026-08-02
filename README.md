@@ -29,18 +29,18 @@ OpenLetter's bet: most people who'd self-host a newsletter platform are blocked 
 
 ## Tech stack
 
-| Layer | Choice |
-| --- | --- |
-| Compute | Cloudflare Workers |
-| Framework | SvelteKit (`adapter-cloudflare`) |
-| Database | Cloudflare D1, via Drizzle ORM |
-| Object storage | Cloudflare R2 (images/attachments) |
-| Email | [Resend](https://resend.com) — Segments for internal targeting, Topics for reader-facing preferences |
-| Auth (reader) | Better Auth, `magicLink` plugin, running against D1 |
-| Editor | Tiptap |
-| CLI | Custom, built on Wrangler |
-| Package manager | [Bun](https://bun.sh) |
-| Testing | Vitest (unit/integration), Playwright (E2E) |
+| Layer           | Choice                                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------- |
+| Compute         | Cloudflare Workers                                                                                   |
+| Framework       | SvelteKit (`adapter-cloudflare`)                                                                     |
+| Database        | Cloudflare D1, via Drizzle ORM                                                                       |
+| Object storage  | Cloudflare R2 (images/attachments)                                                                   |
+| Email           | [Resend](https://resend.com) — Segments for internal targeting, Topics for reader-facing preferences |
+| Auth (reader)   | Better Auth, `magicLink` plugin, running against D1                                                  |
+| Editor          | Tiptap                                                                                               |
+| CLI             | Custom, built on Wrangler                                                                            |
+| Package manager | [Bun](https://bun.sh)                                                                                |
+| Testing         | Vitest (unit/integration), Playwright (E2E)                                                          |
 
 ## Project structure
 
