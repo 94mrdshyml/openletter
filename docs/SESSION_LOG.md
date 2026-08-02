@@ -2,6 +2,55 @@
 
 ---
 
+## Session 22 — CLI: `openletter create`/`deploy`/`d1`/`r2`/`secrets`
+
+**Date & Time (IST):** 2026-08-02 14:30 IST
+**Status:** Completed
+**Branch:** feature/session-22-cli
+
+### What We Built
+
+The CLI described in `PRD.md` §8: a new `cli/` package with an `openletter` bin that scaffolds a new publication from this repo, provisions Cloudflare resources (D1, R2), sets the `BETTER_AUTH_SECRET` Worker secret, and deploys — plus granular commands to re-run individual steps.
+
+Commands: `openletter create [name]`, `openletter deploy`, `openletter d1 create [name]`, `openletter r2 create [name]`, `openletter secrets set [name] [--generate]`.
+
+### How We Built It
+
+- New top-level `cli/` package (own `package.json`, `tsconfig.json`) rather than a workspace inside the main app — the CLI ships independently of the SvelteKit app it deploys, and the root project has no workspace tooling to add it to.
+- `bin/openletter.ts` (`#!/usr/bin/env bun` shebang, requires Bun — consistent with the rest of the project's tooling, not Node/npx) wires subcommands via `commander`. Interactive prompts (`@clack/prompts`) only fire when a positional arg is omitted.
+- Every provisioning step shells out to the already-verified `wrangler` CLI surface (`wrangler d1 create --update-config`, `wrangler r2 bucket create --update-config`, `wrangler r2 bucket dev-url enable`, `wrangler secret put`, `wrangler d1 migrations apply --remote`, `wrangler deploy`) via `bunx` — checked each command's actual `--help` output before writing the wrapper rather than guessing flags. No direct Cloudflare API calls, no separate auth: whatever `wrangler login` is authenticated against is what the CLI operates on (`cli/src/lib/wrangler.ts`).
+- `create` clones this repo with `git clone --depth 1` into `./<slug>`, strips `.git` and `cli/` (a deployed publication doesn't need to carry a copy of the tool that created it), then rewrites the cloned `wrangler.jsonc` — clearing the template's own `d1_databases`/`r2_buckets`/`MEDIA_PUBLIC_URL` (they point at the original repo owner's Cloudflare account) and setting the new Worker name — before provisioning fresh resources against the new owner's account (`cli/src/lib/config.ts`, `cli/src/lib/git.ts`).
+- `wrangler.jsonc` is read/written as plain JSON (`JSON.parse`/`stringify`), not a comment-preserving parser — verified the file has zero `//` comments today, documented in `cli/README.md` as a thing to revisit if that ever changes.
+- `BETTER_AUTH_SECRET` is generated with `node:crypto` `randomBytes(32).toString('hex')` (same shape as the `openssl rand -hex 32` example already in `.dev.vars.example`) and piped directly to `wrangler secret put`'s stdin — never printed, logged, or written to a file, per CLAUDE.md's "never log secrets" rule.
+- **Deliberately does NOT prompt for a Resend API key**, despite `PRD.md` §8's literal wording ("prompts for Resend API key and Better Auth secret"). CLAUDE.md's "Known Gotchas" section is more recent and explicit: Resend config lives in D1 via the `/setup` route in-browser, not env vars or Worker secrets (see `src/routes/setup/+page.server.ts`, read before writing this). Followed the newer, authoritative gotcha over the PRD's original phrasing rather than reintroducing an env-var path that was deliberately removed.
+- Root `eslint.config.js` has no `files` scoping, so `bun run lint` at the repo root already covers `cli/**` — confirmed clean (`prettier --write cli` + `eslint cli`, zero errors). Root `svelte-check` does **not** pick up `cli/` (`.svelte-kit/tsconfig.json`'s `include` is scoped to `src/`/`test/`/`tests/`), so the CLI has its own `cli/tsconfig.json` + `bun run check` (`tsc --noEmit`), checked clean separately.
+
+### In Scope
+
+- `openletter create`, `deploy`, `d1 create`, `r2 create`, `secrets set` commands
+- `cli/README.md` — full command reference, prerequisites, troubleshooting
+- Root `README.md` pointer to `cli/README.md`
+
+### Out of Scope
+
+- Publishing the package to npm (`bunx openletter` doesn't work yet — documented in `cli/README.md` as "run from a local clone" until that happens)
+- Rollback/cleanup of partially-created Cloudflare resources if `create` fails partway through — documented as a manual troubleshooting step (re-run the specific granular command) rather than built as automatic rollback
+- Any CI coverage for the CLI itself (no unit/e2e tests written this session — it's a thin wrapper around `wrangler` subcommands that can't be meaningfully tested without live Cloudflare credentials/side effects; live provisioning was not exercised end-to-end against a real Cloudflare account in this session, only `--help` wiring and typecheck/lint were verified)
+- Multiple named secrets convenience commands beyond `secrets set` (e.g. bulk-import) — not asked for
+
+### Breaking Changes
+
+NONE
+
+### Notes for Future Sessions
+
+- **The `create` → live-Cloudflare path is unverified.** Every `wrangler` invocation is built against its documented `--help` flags, and JSON typechecks clean, but nobody has run `openletter create` against a real Cloudflare account yet in this session. First real run should be treated as a test, not an assumption of correctness — pay particular attention to whether `--update-config` correctly appends to an emptied `d1_databases`/`r2_buckets` array (see `resetForNewPublication` in `cli/src/lib/config.ts`) rather than erroring or duplicating.
+- If a future session publishes to npm, update `cli/README.md`'s install section (currently says "not published yet, clone and run locally") and confirm the `#!/usr/bin/env bun` shebang still resolves correctly when installed as a global/npx package rather than run from a repo checkout.
+- `openletter create` has no rollback on partial failure — if D1 creation succeeds but R2 fails, the writer is left with an orphaned D1 database. If this becomes a real support burden, worth revisiting with proper transactional cleanup.
+- The CLI intentionally never asks for a Resend key — don't add that back without re-reading the "Known Gotchas" section on Resend config in CLAUDE.md first, it explains why that path was deliberately removed from `/setup`'s predecessor design.
+
+---
+
 ## Hotfix 25 — Enable Workers observability + invocation logs
 
 **Date & Time (IST):** 2026-08-02 13:00 IST
