@@ -16,15 +16,16 @@ interface Brand {
 	bodyFont: string;
 }
 
-function resolveBrand(pub: {
-	accentColor: string;
-	headingFont: string;
-	bodyFont: string;
-}): Brand {
+function resolveBrand(pub: { accentColor: string; headingFont: string; bodyFont: string }): Brand {
 	const accentColor = isValidHexColor(pub.accentColor) ? pub.accentColor : '#ec3013';
 	const headingFont = isValidFont(pub.headingFont) ? pub.headingFont : 'Archivo';
 	const bodyFont = isValidFont(pub.bodyFont) ? pub.bodyFont : 'Archivo';
-	return { accentColor, onAccentColor: pickOnAccentColor(accentColor).color, headingFont, bodyFont };
+	return {
+		accentColor,
+		onAccentColor: pickOnAccentColor(accentColor).color,
+		headingFont,
+		bodyFont
+	};
 }
 
 // Google Fonts aren't loaded in an email context (most clients strip
@@ -283,7 +284,15 @@ async function sendEmail(
 	if (!pub?.resendApiKey || !pub?.resendFromEmail) return;
 
 	const { heading, body, ctaText } = buildContent(pub.name);
-	const html = renderEmailHtml(pub.name, pub.logoUrl, resolveBrand(pub), heading, body, ctaText, ctaUrl);
+	const html = renderEmailHtml(
+		pub.name,
+		pub.logoUrl,
+		resolveBrand(pub),
+		heading,
+		body,
+		ctaText,
+		ctaUrl
+	);
 
 	try {
 		const res = await fetch('https://api.resend.com/emails', {
@@ -369,7 +378,14 @@ export async function sendPostPublishedBroadcast(
 	// unescaped/unencoded exactly as written for Resend to recognize it; see
 	// src/routes/unsubscribe for what this link does.
 	const unsubscribeUrl = `${origin}/unsubscribe?email={{{contact.email}}}`;
-	const html = renderPostEmailHtml(pub.name, pub.logoUrl, resolveBrand(pub), post, postUrl, unsubscribeUrl);
+	const html = renderPostEmailHtml(
+		pub.name,
+		pub.logoUrl,
+		resolveBrand(pub),
+		post,
+		postUrl,
+		unsubscribeUrl
+	);
 
 	const broadcastId = await sendPostBroadcast(
 		pub.resendApiKey,

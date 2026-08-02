@@ -4,9 +4,7 @@ import { applyHeadingFontToBody } from './mail';
 describe('applyHeadingFontToBody', () => {
 	it('adds a font-family style to a heading with no existing attributes', () => {
 		const out = applyHeadingFontToBody('<h2>Section</h2>', 'Poppins');
-		expect(out).toBe(
-			'<h2 style="font-family:Poppins,Helvetica,Arial,sans-serif">Section</h2>'
-		);
+		expect(out).toBe('<h2 style="font-family:Poppins,Helvetica,Arial,sans-serif">Section</h2>');
 	});
 
 	it('merges with an existing style attribute rather than dropping it', () => {
@@ -18,9 +16,7 @@ describe('applyHeadingFontToBody', () => {
 
 	it('preserves non-style attributes', () => {
 		const out = applyHeadingFontToBody('<h2 id="intro">Hi</h2>', 'Inter');
-		expect(out).toBe(
-			'<h2 id="intro" style="font-family:Inter,Helvetica,Arial,sans-serif">Hi</h2>'
-		);
+		expect(out).toBe('<h2 id="intro" style="font-family:Inter,Helvetica,Arial,sans-serif">Hi</h2>');
 	});
 
 	it('leaves paragraphs and other tags untouched', () => {
