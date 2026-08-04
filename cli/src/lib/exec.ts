@@ -15,8 +15,15 @@ export function run(command: string, args: string[], cwd: string): Promise<void>
 	return new Promise((resolve, reject) => {
 		const child = spawn(command, args, {
 			cwd,
-			stdio: 'inherit',
-			shell: process.platform === 'win32'
+			stdio: 'inherit'
+			// No `shell: true` — every command this CLI spawns (git, bunx) is a
+			// real .exe, not an npm-style .cmd shim, so a shell isn't needed for
+			// PATH resolution on Windows. It actively broke arguments containing
+			// spaces (e.g. a target directory under "Downloads/New folder"): with
+			// shell:true, Node builds a single command-line string for cmd.exe
+			// without re-quoting each array element, so cmd.exe's own tokenizer
+			// splits an unquoted "New folder" into two arguments. Without shell,
+			// Node's Windows spawn implementation quotes each argument itself.
 		});
 		child.on('error', reject);
 		child.on('close', (code) => {
@@ -29,7 +36,7 @@ export function run(command: string, args: string[], cwd: string): Promise<void>
 /** Runs a command, captures stdout, and also streams it to the terminal so the user sees progress. */
 export function runCapture(command: string, args: string[], cwd: string): Promise<string> {
 	return new Promise((resolve, reject) => {
-		const child = spawn(command, args, { cwd, shell: process.platform === 'win32' });
+		const child = spawn(command, args, { cwd });
 		let stdout = '';
 		let stderr = '';
 		child.stdout?.on('data', (chunk) => {
@@ -58,8 +65,7 @@ export function runWithInput(
 	return new Promise((resolve, reject) => {
 		const child = spawn(command, args, {
 			cwd,
-			stdio: ['pipe', 'inherit', 'inherit'],
-			shell: process.platform === 'win32'
+			stdio: ['pipe', 'inherit', 'inherit']
 		});
 		child.on('error', reject);
 		child.on('close', (code) => {
