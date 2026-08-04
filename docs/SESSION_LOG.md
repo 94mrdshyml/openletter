@@ -2,6 +2,38 @@
 
 ---
 
+## Hotfix 26 — CLI breaks on Windows when the target path contains a space
+
+**Date & Time (IST):** 2026-08-03 00:20 IST
+**Status:** Completed
+**Branch:** fix/cli-windows-shell-quoting
+
+### What We Built
+
+Fixed a real bug reported live: `openletter create` failed on Windows with `git clone ... exited with code 129` / `Too many arguments` whenever the target directory's path contained a space (e.g. under `Downloads/New folder`).
+
+### How We Built It
+
+`cli/src/lib/exec.ts`'s `run`/`runCapture`/`runWithInput` all passed `shell: process.platform === 'win32'` to `child_process.spawn`. With `shell: true` on Windows, Node hands the whole command off to `cmd.exe` as one joined string without re-quoting each array element, so `cmd.exe`'s own tokenizer splits an unquoted path segment like `New folder` into two separate arguments — confirmed directly with a probe script comparing `shell:true` vs `shell:false` argv delivery for the exact same path. `git.exe` and `bunx.exe` (checked via `where`) are both real native binaries here, not npm-style `.cmd` shims, so `shell:true` was never actually required for PATH resolution — removing it lets Node's own Windows spawn implementation quote each argument correctly, which it already does properly without a shell. Verified with a real `cloneTemplate()` run against a path containing a space (successful clone, confirmed via a throwaway script, not just the isolated probe).
+
+### In Scope
+
+- `cli/src/lib/exec.ts` — dropped `shell: process.platform === 'win32'` from all three spawn wrappers
+
+### Out of Scope
+
+- Nothing else touched — pure bugfix, no behavior change on non-Windows or for paths without spaces
+
+### Breaking Changes
+
+NONE
+
+### Notes for Future Sessions
+
+- If a future command genuinely needs shell interpretation (e.g. shell operators like `&&` or `|`), `runWithInput`/`run`/`runCapture` no longer provide it — that would need `shell: true` restored for that specific call site with proper manual argument quoting, not restored globally.
+
+---
+
 ## Session 24 — First-party email analytics: delivered, opened, clicked, unsubscribed, complained, bounced
 
 **Date & Time (IST):** 2026-08-02 23:50 IST
